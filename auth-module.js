@@ -158,7 +158,8 @@
 
   async function doEmailLogin() {
     if (authUnavailable) {
-      setError('login-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      console.warn('Firebase Authentication is unavailable; staying in guest mode.');
+      showAppAsGuest();
       return;
     }
 
@@ -190,7 +191,8 @@
 
   async function doRegister() {
     if (authUnavailable) {
-      setError('reg-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      console.warn('Firebase Authentication is unavailable; registration is disabled.');
+      showAppAsGuest();
       return;
     }
 
@@ -232,7 +234,8 @@
 
   async function doResetPassword() {
     if (authUnavailable) {
-      setError('reset-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      console.warn('Firebase Authentication is unavailable; password reset is disabled.');
+      showAppAsGuest();
       return;
     }
 
@@ -265,7 +268,8 @@
 
   async function doGoogleLogin() {
     if (authUnavailable) {
-      setError('login-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      console.warn('Firebase Authentication is unavailable; Google login is disabled.');
+      showAppAsGuest();
       return;
     }
 
@@ -414,11 +418,12 @@
         const code = String(error?.code || error?.message || '');
         if (code.includes('CONFIGURATION_NOT_FOUND') || code.includes('auth/configuration-not-found')) {
           authUnavailable = true;
+          console.warn('Firebase Authentication is not configured for this project. Falling back to guest mode.', error);
           showAppAsGuest();
-          setError('login-error', 'Firebase Authentication が未設定です。Firebase Console で Authentication を有効化してください。');
           return;
         }
-        setError('login-error', '認証の初期化に失敗しました。時間をおいて再読み込みしてください。');
+        console.warn('Firebase Authentication initialization failed.', error);
+        showAppAsGuest();
       }
     );
   }
