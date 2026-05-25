@@ -1814,6 +1814,7 @@ function hideLoginOverlay() {
   // Firebase認証後にデータを読み込む
   loadData();
   refreshFilterOptions();
+  updateMembersOnlyPanels();
 
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
