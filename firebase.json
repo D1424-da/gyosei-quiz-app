@@ -1,8 +1,15 @@
 {
   "hosting": {
-    "public": "public",
+    "public": ".",
     "ignore": [
       "firebase.json",
+      "firestore.rules",
+      ".firebaserc",
+      ".gitignore",
+      "README.md",
+      "GYOSYO_SCRAPER.md",
+      "gyosyo_scraper.ps1",
+      "data/**",
       "**/.*",
       "**/node_modules/**"
     ]

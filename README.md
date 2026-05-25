@@ -8,10 +8,10 @@ Administrative scrivener one-question-one-answer web app.
 - Data source can be generated separately by the scraper repository
 
 ## Local Preview
-Open `public/index.html` in a browser.
+Open `index.html` in a browser.
 
 ## Next Steps
 1. Create a new Firebase project
-2. Add web app config in `public/firebase-config.js`
+2. Add web app config in `firebase-config.js`
 3. Initialize Hosting and Firestore in this repository
 4. Import question data to Firestore or load JSON from `data/`
