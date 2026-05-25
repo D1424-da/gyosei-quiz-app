@@ -3093,6 +3093,10 @@ function esc(str) {
 
 // ── イベント登録 ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  if (window.location.protocol === 'file:') {
+    alert('このアプリは file:// 直開きでは正常動作しません。\n\nVS Code の Live Server などで http://localhost から開いてください。\n(認証と問題データ読み込みが失敗します)');
+  }
+
   // ── ファイルストレージ初期化 ──────────────────────────────
   await initFileStorage();
 

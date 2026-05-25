@@ -23,6 +23,10 @@
     }
   }
 
+  function isFileProtocol() {
+    return typeof window !== 'undefined' && window.location?.protocol === 'file:';
+  }
+
   function setVisible(el, visible) {
     if (!el) return;
     el.classList.toggle('hidden', !visible);
@@ -113,6 +117,11 @@
   }
 
   async function doEmailLogin() {
+    if (isFileProtocol()) {
+      setError('login-error', 'file:// ではログインできません。http://localhost で開いてください。');
+      return;
+    }
+
     const auth = getAuth();
     if (!auth) {
       setError('login-error', 'Firebase認証が設定されていません。');
@@ -135,6 +144,11 @@
   }
 
   async function doRegister() {
+    if (isFileProtocol()) {
+      setError('reg-error', 'file:// では新規登録できません。http://localhost で開いてください。');
+      return;
+    }
+
     const auth = getAuth();
     if (!auth) {
       setError('reg-error', 'Firebase認証が設定されていません。');
@@ -167,6 +181,11 @@
   }
 
   async function doResetPassword() {
+    if (isFileProtocol()) {
+      setError('reset-error', 'file:// ではパスワードリセットできません。http://localhost で開いてください。');
+      return;
+    }
+
     const auth = getAuth();
     if (!auth) {
       setError('reset-error', 'Firebase認証が設定されていません。');
@@ -190,6 +209,11 @@
   }
 
   async function doGoogleLogin() {
+    if (isFileProtocol()) {
+      setError('login-error', 'file:// ではGoogleログインできません。http://localhost で開いてください。');
+      return;
+    }
+
     const auth = getAuth();
     if (!auth || !firebase.auth?.GoogleAuthProvider) {
       setError('login-error', 'Googleログインを利用できません。');
