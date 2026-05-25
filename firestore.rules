@@ -1,6 +1,41 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwnDoc(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // 現行形式: docId = uid
+    match /question_sets/{uid} {
+      allow read, write: if isOwnDoc(uid);
+    }
+
+    match /study_stats/{uid} {
+      allow read, write: if isOwnDoc(uid);
+    }
+
+    // records は現行(docId=uid)と旧形式(uidフィールド)の両方を許可
+    match /records/{docId} {
+      allow read: if isSignedIn() && (
+        request.auth.uid == docId ||
+        resource.data.uid == request.auth.uid
+      );
+
+      allow create, update: if isSignedIn() && (
+        request.auth.uid == docId ||
+        request.resource.data.uid == request.auth.uid
+      );
+
+      allow delete: if isSignedIn() && (
+        request.auth.uid == docId ||
+        resource.data.uid == request.auth.uid
+      );
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
