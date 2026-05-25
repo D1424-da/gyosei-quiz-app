@@ -218,6 +218,13 @@ function getStudyFilters() {
   };
 }
 
+function normalizeCategoryLabel(category) {
+  return String(category || '')
+    .replace(/[：:]/g, '・')
+    .replace(/\s*・\s*/g, '・')
+    .trim();
+}
+
 function setStudyFilters(filters = {}) {
   const subjectEl = document.getElementById('filter-subject');
   const categoryEl = document.getElementById('filter-category');
@@ -229,7 +236,8 @@ function setStudyFilters(filters = {}) {
   if (categoryEl && subjectEl) {
     const categories = getCategories(subjectEl.value);
     categoryEl.innerHTML = '<option value="">すべて</option>' + categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    categoryEl.value = categories.includes(filters.category || '') ? (filters.category || '') : '';
+    const normalized = normalizeCategoryLabel(filters.category || '');
+    categoryEl.value = categories.includes(normalized) ? normalized : '';
   }
   if (yearFromEl) yearFromEl.value = filters.yearFrom || '';
   if (yearToEl) yearToEl.value = filters.yearTo || '';
@@ -307,7 +315,8 @@ function saveStudySessionSnapshot() {
   const uid = getAuthUid();
   if (!uid || !session || !Array.isArray(session.queue) || session.queue.length === 0) return;
   if (session.resumeEligible === false) return;
-  const key = getStudySessionStorageKey(uid);
+      const normalized = normalizeCategoryLabel(filters.category || '');
+      categoryEl.value = categories.includes(normalized) ? normalized : '';
   const snapshot = {
     queueIds: session.queue.map(limb => limb?.id).filter(Boolean),
     index: Math.max(0, Math.floor(Number(session.index || 0))),
@@ -316,10 +325,10 @@ function saveStudySessionSnapshot() {
     savedAt: Date.now()
   };
   studySessionSnapshotCache[uid] = snapshot;
-  storageSetItem(key, JSON.stringify(snapshot));
+    const normalizedFilterCategory = normalizeCategoryLabel(filterCategory);
   sessionSnapshotPendingSync = true;
   flushStudySessionSnapshotToCloudIfNeeded();
-  updateResumeSessionButton();
+      if (normalizedFilterCategory && normalizeCategoryLabel(q.category) !== normalizedFilterCategory) continue;
 }
 
 function clearStudySessionSnapshot() {
@@ -327,7 +336,7 @@ function clearStudySessionSnapshot() {
   if (!uid) return;
   delete studySessionSnapshotCache[uid];
   storageRemoveItem(getStudySessionStorageKey(uid));
-  sessionSnapshotPendingSync = true;
+        .map(q => normalizeCategoryLabel(q.category))
   flushStudySessionSnapshotToCloudIfNeeded();
   updateResumeSessionButton();
 }
@@ -342,12 +351,13 @@ async function restoreLastStudySession() {
   const saved = readSavedStudySession();
   if (!saved) {
     alert('再開できる前回の学習セッションがありません。');
+    fCat.value = cats.includes(normalizeCategoryLabel(fCat.value)) ? normalizeCategoryLabel(fCat.value) : '';
     return false;
   }
 
   let queue = rebuildSessionQueue(saved.queueIds);
 
-  // 画面表示直後はクラウド問題データ取得前の場合があるため、1回だけ再試行する。
+    const category     = normalizeCategoryLabel(document.getElementById('input-category').value.trim());
   if (queue.length === 0) {
     await pullQuestionsFromCloudIfNeeded();
     queue = rebuildSessionQueue(saved.queueIds);
@@ -359,7 +369,7 @@ async function restoreLastStudySession() {
       updateResumeSessionButton();
       return false;
     }
-    clearStudySessionSnapshot();
+    document.getElementById('input-category').value    = normalizeCategoryLabel(q.category || '');
     alert('前回の学習セッションを復元できませんでした。');
     return false;
   }
@@ -1958,9 +1968,10 @@ function makeInlineRecordId(limbId, key) {
 /** 全肢をフラット化して返す */
 function getAllLimbs(filterSubject = '', filterCategory = '', splitInlineForStats = false) {
   const limbs = [];
+  const normalizedFilterCategory = normalizeCategoryLabel(filterCategory);
   for (const q of questions) {
     if (filterSubject  && q.subject  !== filterSubject)  continue;
-    if (filterCategory && q.category !== filterCategory) continue;
+    if (normalizedFilterCategory && normalizeCategoryLabel(q.category) !== normalizedFilterCategory) continue;
 
     for (const limb of q.limbs) {
       if (splitInlineForStats) {
@@ -2013,7 +2024,7 @@ function getCategories(subject = '') {
   return [...new Set(
     questions
       .filter(q => !subject || q.subject === subject)
-      .map(q => q.category)
+      .map(q => normalizeCategoryLabel(q.category))
       .filter(Boolean)
   )].sort();
 }
@@ -2132,6 +2143,7 @@ function refreshFilterOptions() {
 
   const cats = getCategories(fSubj.value);
   fCat.innerHTML = '<option value="">すべて</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  fCat.value = cats.includes(normalizeCategoryLabel(fCat.value)) ? normalizeCategoryLabel(fCat.value) : '';
 
   // 管理ページ
   const mSubj = document.getElementById('manage-filter-subject');
@@ -2318,7 +2330,7 @@ function renderCurrentLimb() {
   const area = document.getElementById('limb-area');
   area.innerHTML = `
     <div class="limb-card card">
-      ${limb.source ? `<div class="limb-meta"><span class="badge badge-source">${esc(limb.source)}</span> <span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(limb.category)}</span>` : ''}</div>` : `<div class="limb-meta"><span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(limb.category)}</span>` : ''}</div>`}
+      ${limb.source ? `<div class="limb-meta"><span class="badge badge-source">${esc(limb.source)}</span> <span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>` : `<div class="limb-meta"><span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>`}
       ${limb.questionText ? `<div class="question-shared"><span class="question-label">問題文</span><span class="question-body">${esc(limb.questionText)}</span></div>` : ''}
       <div class="limb-text">${inlineTextHtml}</div>
       <div class="limb-record">${rate !== null ? `正答率 ${rate}% (${rec.correct}○ ${rec.wrong}×)` : '未回答'}</div>
@@ -2530,7 +2542,7 @@ function renderManage() {
           <input type="checkbox" class="manage-chk" data-id="${q.id}" />
           <div class="manage-card-meta">
             <span class="badge badge-subject">${esc(q.subject)}</span>
-            ${q.category ? `<span class="badge badge-category">${esc(q.category)}</span>` : ''}
+              ${q.category ? `<span class="badge badge-category">${esc(normalizeCategoryLabel(q.category))}</span>` : ''}
             ${q.source   ? `<span class="badge badge-source">${esc(q.source)}</span>`   : ''}
           </div>
         </div>
@@ -2598,7 +2610,7 @@ function openEditModal(id) {
   document.getElementById('modal-title').textContent = '問題を編集';
   document.getElementById('edit-question-id').value  = id;
   document.getElementById('input-subject').value     = q.subject || '';
-  document.getElementById('input-category').value    = q.category || '';
+  document.getElementById('input-category').value    = normalizeCategoryLabel(q.category || '');
   document.getElementById('input-source').value      = q.source || '';
   document.getElementById('input-question-text').value = q.questionText || '';
   resetLimbsEditor(q.limbs);
@@ -2741,7 +2753,7 @@ function getLimbsFromEditor() {
 function saveQuestion(e) {
   e.preventDefault();
   const subject      = document.getElementById('input-subject').value.trim();
-  const category     = document.getElementById('input-category').value.trim();
+  const category     = normalizeCategoryLabel(document.getElementById('input-category').value.trim());
   const source       = document.getElementById('input-source').value.trim();
   const questionText = document.getElementById('input-question-text').value.trim();
 
@@ -3074,7 +3086,7 @@ function renderStats() {
       <span class="weak-rank">${i + 1}</span>
       <div class="weak-limb-info">
         <div class="weak-limb-text">${esc(limb.text.slice(0, 80))}${limb.text.length > 80 ? '…' : ''}</div>
-        <div class="weak-limb-meta">${esc(limb.subject)}${limb.category ? ' / ' + esc(limb.category) : ''}　 正答率 ${rt}% (${r.correct}○ ${r.wrong}×)${esc(wrongDateInfo)}</div>
+        <div class="weak-limb-meta">${esc(limb.subject)}${limb.category ? ' / ' + esc(normalizeCategoryLabel(limb.category)) : ''}　 正答率 ${rt}% (${r.correct}○ ${r.wrong}×)${esc(wrongDateInfo)}</div>
       </div>
     </div>`;
   }).join('');
