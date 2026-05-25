@@ -104,6 +104,9 @@
     if (app) app.classList.remove('hidden');
     if (overlay) overlay.classList.add('hidden');
     if (name) name.textContent = 'ゲスト';
+    if (typeof updateMembersOnlyPanels === 'function') {
+      updateMembersOnlyPanels();
+    }
   }
 
   function applySignedIn(user) {

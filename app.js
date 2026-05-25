@@ -219,10 +219,19 @@ function getStudyFilters() {
 }
 
 function normalizeCategoryLabel(category) {
-  return String(category || '')
+  const value = String(category || '')
     .replace(/[：:]/g, '・')
     .replace(/\s*・\s*/g, '・')
     .trim();
+
+  const aliasMap = {
+    '行政事件訴訟法': '行政事件訴訟',
+    '行政不服審査法': '行政不服審査',
+    '行政手続法': '行政手続',
+    '地方自治法': '地方自治'
+  };
+
+  return aliasMap[value] || value;
 }
 
 function setStudyFilters(filters = {}) {
@@ -1825,6 +1834,7 @@ function hideLoginOverlay() {
   loadData();
   refreshFilterOptions();
   updateMembersOnlyPanels();
+  requestAnimationFrame(updateMembersOnlyPanels);
 
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
@@ -2069,8 +2079,14 @@ function updateMembersOnlyPanels() {
 
   const studyCalendarSection = document.getElementById('study-calendar-section');
   const studyCalendarGuestCta = document.getElementById('study-calendar-guest-cta');
-  if (studyCalendarSection) studyCalendarSection.classList.toggle('hidden', !loggedIn);
-  if (studyCalendarGuestCta) studyCalendarGuestCta.classList.toggle('hidden', loggedIn);
+  if (studyCalendarSection) {
+    if (loggedIn) studyCalendarSection.classList.remove('hidden');
+    else studyCalendarSection.classList.add('hidden');
+  }
+  if (studyCalendarGuestCta) {
+    if (loggedIn) studyCalendarGuestCta.classList.add('hidden');
+    else studyCalendarGuestCta.classList.remove('hidden');
+  }
 
   const adminPage = document.getElementById('page-admin');
   if (adminPage) adminPage.classList.toggle('hidden', !canManage);
