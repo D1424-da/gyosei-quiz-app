@@ -8,7 +8,18 @@ Administrative scrivener one-question-one-answer web app.
 - Data source can be generated separately by the scraper repository
 
 ## Local Preview
-Open `index.html` in a browser.
+Run with a local web server (do not open via file://).
+
+PowerShell example:
+
+```powershell
+cd F:\開発中アプリ\行政書士
+py -m http.server 5500
+```
+
+Then open:
+
+http://localhost:5500/index.html
 
 ## Next Steps
 1. Create a new Firebase project

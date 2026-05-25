@@ -5,6 +5,7 @@
 
 (function () {
   let localAdminAuthenticated = false;
+  let authUnavailable = false;
 
   function byId(id) {
     return document.getElementById(id);
@@ -50,6 +51,45 @@
     setError('reset-error', '');
     const ok = byId('reset-success');
     if (ok) ok.classList.add('hidden');
+  }
+
+  function toAuthErrorMessage(error, fallback) {
+    const code = String(error?.code || '').trim();
+    const raw = String(error?.message || '').trim();
+
+    switch (code) {
+      case 'auth/configuration-not-found':
+        return 'Firebase Authentication が未設定です。Firebase Console で Authentication を有効化してください。';
+      case 'auth/operation-not-allowed':
+        return 'このログイン方式は無効です。Firebase Console の Authentication > Sign-in method で有効化してください。';
+      case 'auth/invalid-api-key':
+      case 'auth/api-key-not-valid':
+        return 'Firebase API キーが無効です。firebase-config.js の設定を確認してください。';
+      case 'auth/unauthorized-domain':
+        return 'このドメインは認証に未登録です。Authentication > Settings > Authorized domains に追加してください。';
+      case 'auth/email-already-in-use':
+        return 'このメールアドレスは既に登録されています。';
+      case 'auth/invalid-email':
+        return 'メールアドレスの形式が正しくありません。';
+      case 'auth/weak-password':
+        return 'パスワードが弱すぎます。6文字以上で設定してください。';
+      case 'auth/network-request-failed':
+        return 'ネットワークエラーが発生しました。接続を確認して再試行してください。';
+      case 'auth/popup-blocked':
+      case 'auth/popup-closed-by-user':
+        return 'ポップアップでの認証が完了しませんでした。ポップアップを許可して再試行してください。';
+      default:
+        break;
+    }
+
+    if (raw.includes('CONFIGURATION_NOT_FOUND')) {
+      return 'Firebase Authentication が未設定です。Firebase Console で Authentication を有効化してください。';
+    }
+    if (raw.includes('OPERATION_NOT_ALLOWED')) {
+      return 'Email/Password 認証が無効です。Authentication > Sign-in method で有効化してください。';
+    }
+
+    return fallback || raw || '認証処理に失敗しました。';
   }
 
   function getUserLabel(user) {
@@ -117,6 +157,11 @@
   }
 
   async function doEmailLogin() {
+    if (authUnavailable) {
+      setError('login-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      return;
+    }
+
     if (isFileProtocol()) {
       setError('login-error', 'file:// ではログインできません。http://localhost で開いてください。');
       return;
@@ -139,11 +184,16 @@
       setError('login-error', '');
       await auth.signInWithEmailAndPassword(email, password);
     } catch (e) {
-      setError('login-error', e?.message || 'ログインに失敗しました。');
+      setError('login-error', toAuthErrorMessage(e, 'ログインに失敗しました。'));
     }
   }
 
   async function doRegister() {
+    if (authUnavailable) {
+      setError('reg-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      return;
+    }
+
     if (isFileProtocol()) {
       setError('reg-error', 'file:// では新規登録できません。http://localhost で開いてください。');
       return;
@@ -176,11 +226,16 @@
       setError('reg-error', '');
       await auth.createUserWithEmailAndPassword(email, pw);
     } catch (e) {
-      setError('reg-error', e?.message || 'ユーザー作成に失敗しました。');
+      setError('reg-error', toAuthErrorMessage(e, 'ユーザー作成に失敗しました。'));
     }
   }
 
   async function doResetPassword() {
+    if (authUnavailable) {
+      setError('reset-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      return;
+    }
+
     if (isFileProtocol()) {
       setError('reset-error', 'file:// ではパスワードリセットできません。http://localhost で開いてください。');
       return;
@@ -204,11 +259,16 @@
       const ok = byId('reset-success');
       if (ok) ok.classList.remove('hidden');
     } catch (e) {
-      setError('reset-error', e?.message || '送信に失敗しました。');
+      setError('reset-error', toAuthErrorMessage(e, '送信に失敗しました。'));
     }
   }
 
   async function doGoogleLogin() {
+    if (authUnavailable) {
+      setError('login-error', 'Firebase Authentication の設定が未完了です。管理者に確認してください。');
+      return;
+    }
+
     if (isFileProtocol()) {
       setError('login-error', 'file:// ではGoogleログインできません。http://localhost で開いてください。');
       return;
@@ -225,7 +285,7 @@
       const provider = new firebase.auth.GoogleAuthProvider();
       await auth.signInWithPopup(provider);
     } catch (e) {
-      setError('login-error', e?.message || 'Googleログインに失敗しました。');
+      setError('login-error', toAuthErrorMessage(e, 'Googleログインに失敗しました。'));
     }
   }
 
@@ -342,13 +402,25 @@
       return;
     }
 
-    auth.onAuthStateChanged((user) => {
-      if (user) {
-        applySignedIn(user);
-      } else {
-        applySignedOut();
+    auth.onAuthStateChanged(
+      (user) => {
+        if (user) {
+          applySignedIn(user);
+        } else {
+          applySignedOut();
+        }
+      },
+      (error) => {
+        const code = String(error?.code || error?.message || '');
+        if (code.includes('CONFIGURATION_NOT_FOUND') || code.includes('auth/configuration-not-found')) {
+          authUnavailable = true;
+          showAppAsGuest();
+          setError('login-error', 'Firebase Authentication が未設定です。Firebase Console で Authentication を有効化してください。');
+          return;
+        }
+        setError('login-error', '認証の初期化に失敗しました。時間をおいて再読み込みしてください。');
       }
-    });
+    );
   }
 
   window.switchAuthForm = switchAuthForm;
