@@ -1,6 +1,6 @@
 .firebase/
-.firebaserc
 firestore-debug.log
+firebase-debug*.log
 ui-debug.log
 node_modules/
 .env
