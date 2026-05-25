@@ -115,11 +115,11 @@
             </select>
           </div>
           <div class="filter-group filter-year-range">
-            <label for="filter-year-from">年度</label>
+            <label for="filter-year-from">年度範囲</label>
             <div class="year-range-inner">
-              <select id="filter-year-from"><option value="">指定なし</option></select>
+              <select id="filter-year-from" aria-label="開始年度"><option value="">指定なし</option></select>
               <span class="year-range-sep">〜</span>
-              <select id="filter-year-to"><option value="">指定なし</option></select>
+              <select id="filter-year-to" aria-label="終了年度"><option value="">指定なし</option></select>
             </div>
           </div>
           <div class="filter-group">
@@ -205,10 +205,10 @@
           <option value="">すべての科目</option>
         </select>
         <div class="year-range-inline">
-          <span class="manage-filter-label">年度</span>
-          <select id="manage-year-from"><option value="">指定なし</option></select>
+          <span class="manage-filter-label">年度範囲</span>
+          <select id="manage-year-from" aria-label="開始年度"><option value="">指定なし</option></select>
           <span class="year-range-sep">〜</span>
-          <select id="manage-year-to"><option value="">指定なし</option></select>
+          <select id="manage-year-to" aria-label="終了年度"><option value="">指定なし</option></select>
         </div>
       </div>
 
