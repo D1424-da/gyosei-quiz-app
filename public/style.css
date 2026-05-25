@@ -1,0 +1,61 @@
+:root {
+  --bg: #f4f6fb;
+  --surface: #ffffff;
+  --ink: #1f2937;
+  --muted: #5b6470;
+  --accent: #0f766e;
+  --line: #dde3ea;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Yu Gothic UI", sans-serif;
+  background: linear-gradient(135deg, #edf8f7 0%, #f7f9fc 45%, #fff7ed 100%);
+  color: var(--ink);
+}
+
+.app {
+  max-width: 760px;
+  margin: 48px auto;
+  padding: 0 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.subtitle {
+  margin-top: 8px;
+  color: var(--muted);
+}
+
+.card {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+button:hover {
+  opacity: 0.92;
+}
+
+#pingResult {
+  margin-top: 12px;
+  color: var(--muted);
+}

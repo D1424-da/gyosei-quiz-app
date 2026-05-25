@@ -1,0 +1,8 @@
+.firebase/
+.firebaserc
+firestore-debug.log
+ui-debug.log
+node_modules/
+.env
+.DS_Store
+Thumbs.db
