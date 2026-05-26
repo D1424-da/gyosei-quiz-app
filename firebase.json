@@ -9,6 +9,7 @@
       "README.md",
       "GYOSYO_SCRAPER.md",
       "gyosyo_scraper.ps1",
+      "参考/**",
       "data/**",
       "**/.*",
       "**/node_modules/**"
