@@ -1517,6 +1517,9 @@ async function syncBundledQuestions() {
       return;
     }
 
+    // ユーザーが明示的に接続したデータファイルを優先する。
+    if (fileHandle) return;
+
     const local = JSON.parse(storageGetItem(KEY_QUESTIONS) || '[]');
     const meta = getQuestionsMeta();
     // Preserve explicit local edits/imports on this device.
@@ -1538,13 +1541,15 @@ async function syncBundledQuestions() {
       return;
     }
 
+    const syncedAt = Date.now();
     storageSetItem(KEY_QUESTIONS, JSON.stringify(bundled));
     questions = bundled;
     saveQuestionsMeta({
       ...meta,
       localDirty: false,
-      localEditedAt: Number(meta.localEditedAt || 0),
-      lastBundledSyncAt: Date.now()
+      // 同梱データを適用した時刻を明示し、古いクラウド値での上書きを防ぐ。
+      localEditedAt: syncedAt,
+      lastBundledSyncAt: syncedAt
     });
   } catch {
     // Bundled JSON is optional; fall back to existing localStorage data.
@@ -1691,7 +1696,17 @@ async function writeToFile() {
 async function applyFileData(data) {
   if (!data || typeof data !== 'object') throw new Error('不正なデータ形式');
   if (Array.isArray(data.users) && data.users.length > 0) storageSetItem(KEY_USERS, JSON.stringify(data.users));
-  if (Array.isArray(data.questions)) { questions = data.questions; storageSetItem(KEY_QUESTIONS, JSON.stringify(questions)); }
+  if (Array.isArray(data.questions)) {
+    const now = Date.now();
+    questions = data.questions;
+    storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
+    saveQuestionsMeta({
+      ...getQuestionsMeta(),
+      localDirty: true,
+      localEditedAt: now,
+      lastFileImportAt: now
+    });
+  }
   if (data.records && typeof data.records === 'object') {
     for (const [uid, recs] of Object.entries(data.records)) {
       storageSetItem(`${KEY_RECORDS}_${uid}`, JSON.stringify(recs));
