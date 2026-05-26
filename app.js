@@ -2125,6 +2125,12 @@ function updateMembersOnlyPanels() {
   const loggedIn = !!(getAuthUid() || window.currentUser?.uid);
   const canManage = typeof isAdminUser === 'function' ? isAdminUser() : false;
 
+  // 管理者ログイン導線は常に見せる（未認証時はクリックで管理者ログインオーバーレイを表示）
+  const navAdminBtn = document.getElementById('nav-admin-btn');
+  const navManageBtn = document.getElementById('nav-manage-btn');
+  if (navAdminBtn) navAdminBtn.classList.remove('hidden');
+  if (navManageBtn) navManageBtn.classList.toggle('hidden', !canManage);
+
   const studyCalendarSection = document.getElementById('study-calendar-section');
   const studyCalendarGuestCta = document.getElementById('study-calendar-guest-cta');
   if (studyCalendarSection) {
