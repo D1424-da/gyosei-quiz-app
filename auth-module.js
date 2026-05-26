@@ -69,6 +69,15 @@
         return 'このドメインは認証に未登録です。Authentication > Settings > Authorized domains に追加してください。';
       case 'auth/email-already-in-use':
         return 'このメールアドレスは既に登録されています。';
+      case 'auth/user-not-found':
+        return 'このメールアドレスのユーザーは見つかりません。先に新規ユーザー作成を行ってください。';
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':
+        return 'メールアドレスまたはパスワードが正しくありません。';
+      case 'auth/user-disabled':
+        return 'このユーザーは無効化されています。';
+      case 'auth/too-many-requests':
+        return '試行回数が多すぎます。しばらく待ってから再試行してください。';
       case 'auth/invalid-email':
         return 'メールアドレスの形式が正しくありません。';
       case 'auth/weak-password':
@@ -88,8 +97,21 @@
     if (raw.includes('OPERATION_NOT_ALLOWED')) {
       return 'Email/Password 認証が無効です。Authentication > Sign-in method で有効化してください。';
     }
+    if (raw.includes('INVALID_LOGIN_CREDENTIALS')) {
+      return 'メールアドレスまたはパスワードが正しくありません。';
+    }
 
     return fallback || raw || '認証処理に失敗しました。';
+  }
+
+  function bindEnterToAction(inputId, action) {
+    const el = byId(inputId);
+    if (!el || typeof action !== 'function') return;
+    el.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      action();
+    });
   }
 
   function getUserLabel(user) {
@@ -368,6 +390,13 @@
     byId('btn-login')?.addEventListener('click', doEmailLogin);
     byId('btn-register')?.addEventListener('click', doRegister);
     byId('btn-do-reset')?.addEventListener('click', doResetPassword);
+
+    bindEnterToAction('login-email', doEmailLogin);
+    bindEnterToAction('login-password', doEmailLogin);
+    bindEnterToAction('reg-email', doRegister);
+    bindEnterToAction('reg-password', doRegister);
+    bindEnterToAction('reg-password2', doRegister);
+    bindEnterToAction('reset-email', doResetPassword);
 
     byId('btn-show-register')?.addEventListener('click', () => switchAuthForm('register'));
     byId('btn-show-login')?.addEventListener('click', () => switchAuthForm('login'));
