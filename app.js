@@ -324,8 +324,7 @@ function saveStudySessionSnapshot() {
   const uid = getAuthUid();
   if (!uid || !session || !Array.isArray(session.queue) || session.queue.length === 0) return;
   if (session.resumeEligible === false) return;
-      const normalized = normalizeCategoryLabel(filters.category || '');
-      categoryEl.value = categories.includes(normalized) ? normalized : '';
+  const key = getStudySessionStorageKey(uid);
   const snapshot = {
     queueIds: session.queue.map(limb => limb?.id).filter(Boolean),
     index: Math.max(0, Math.floor(Number(session.index || 0))),
@@ -334,10 +333,10 @@ function saveStudySessionSnapshot() {
     savedAt: Date.now()
   };
   studySessionSnapshotCache[uid] = snapshot;
-    const normalizedFilterCategory = normalizeCategoryLabel(filterCategory);
+  storageSetItem(key, JSON.stringify(snapshot));
   sessionSnapshotPendingSync = true;
   flushStudySessionSnapshotToCloudIfNeeded();
-      if (normalizedFilterCategory && normalizeCategoryLabel(q.category) !== normalizedFilterCategory) continue;
+  updateResumeSessionButton();
 }
 
 function clearStudySessionSnapshot() {
@@ -345,7 +344,7 @@ function clearStudySessionSnapshot() {
   if (!uid) return;
   delete studySessionSnapshotCache[uid];
   storageRemoveItem(getStudySessionStorageKey(uid));
-        .map(q => normalizeCategoryLabel(q.category))
+  sessionSnapshotPendingSync = true;
   flushStudySessionSnapshotToCloudIfNeeded();
   updateResumeSessionButton();
 }
@@ -360,13 +359,12 @@ async function restoreLastStudySession() {
   const saved = readSavedStudySession();
   if (!saved) {
     alert('再開できる前回の学習セッションがありません。');
-    fCat.value = cats.includes(normalizeCategoryLabel(fCat.value)) ? normalizeCategoryLabel(fCat.value) : '';
     return false;
   }
 
   let queue = rebuildSessionQueue(saved.queueIds);
 
-    const category     = normalizeCategoryLabel(document.getElementById('input-category').value.trim());
+  // 画面表示直後はクラウド問題データ取得前の場合があるため、1回だけ再試行する。
   if (queue.length === 0) {
     await pullQuestionsFromCloudIfNeeded();
     queue = rebuildSessionQueue(saved.queueIds);
@@ -378,7 +376,7 @@ async function restoreLastStudySession() {
       updateResumeSessionButton();
       return false;
     }
-    document.getElementById('input-category').value    = normalizeCategoryLabel(q.category || '');
+    clearStudySessionSnapshot();
     alert('前回の学習セッションを復元できませんでした。');
     return false;
   }
