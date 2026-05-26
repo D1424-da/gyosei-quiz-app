@@ -235,7 +235,7 @@ function normalizeCategoryLabel(category) {
 
   const aliasMap = {
     '行政事件訴訟法': '行政事件訴訟',
-    '行政不服審査法': '行政不服審査',
+    '行政不服審査法': '行政不服審査法',
     '行政手続法': '行政手続',
     '地方自治法': '地方自治'
   };
