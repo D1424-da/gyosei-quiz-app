@@ -3,6 +3,15 @@
    ========================================================= */
 
 // ── ストレージキー ──────────────────────────────────────────
+
+// Firestore がオフライン状態のエラーは無音にする（通常の接続失敗のため）。
+function warnCloudError(label, e) {
+  const msg = (e && e.message) ? e.message : String(e);
+  const code = (e && e.code) ? e.code : '';
+  if (code === 'unavailable' || msg.includes('offline') || msg.includes('client is offline')) return;
+  console.warn(label, e);
+}
+
  const KEY_QUESTIONS   = 'limb_questions';
 const KEY_RECORDS     = 'limb_records';    // パーユーザーキー: limb_records_<uid>
 const KEY_RECORDS_META = 'limb_records_meta'; // パーユーザーキー: limb_records_meta_<uid>
@@ -682,7 +691,7 @@ async function pullQuestionsFromCloudIfNeeded() {
     cloudQuestionsLoadedUid = uid;
   } catch (e) {
     markSyncError('questions', e);
-    console.warn('クラウド問題データ同期(取得)エラー:', e);
+    warnCloudError('クラウド問題データ同期(取得):', e);
   } finally {
     cloudPullInFlight = false;
   }
@@ -703,7 +712,7 @@ async function pushQuestionsToCloud() {
     markSyncSuccess('questions', now);
   } catch (e) {
     markSyncError('questions', e);
-    console.warn('クラウド問題データ同期(保存)エラー:', e);
+    warnCloudError('クラウド問題データ同期(保存):', e);
   }
 }
 
@@ -792,7 +801,7 @@ function startCloudRealtimeSubscriptions() {
     tryRenderStatsIfOpen();
   }, (e) => {
     markSyncError('records', e);
-    console.warn('クラウド成績リアルタイム同期エラー:', e);
+    warnCloudError('クラウド成績リアルタイム同期:', e);
   });
 
   unsubscribeStudyStatsRealtime = db.collection('study_stats').doc(uid).onSnapshot((snap) => {
@@ -925,7 +934,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
     cloudRecordsLoadedUid = uid;
   } catch (e) {
     markSyncError('records', e);
-    console.warn('クラウド成績データ同期(取得)エラー:', e);
+    warnCloudError('クラウド成績データ同期(取得):', e);
   } finally {
     cloudRecordsPullInFlight = false;
   }
@@ -953,7 +962,7 @@ async function pushRecordsToCloud() {
     }
   } catch (e) {
     recordsPendingSync = true;
-    console.warn('クラウド成績データ同期(保存)エラー:', e);
+    warnCloudError('クラウド成績データ同期(保存):', e);
   } finally {
     cloudRecordsFlushInFlight = false;
   }
@@ -1032,7 +1041,7 @@ async function flushRecordDeltasToCloudIfNeeded() {
     }
   } catch (e) {
     markSyncError('records', e);
-    console.warn('クラウド成績データ同期(差分保存)エラー:', e);
+    warnCloudError('クラウド成績データ同期(差分保存):', e);
     // 直前の送信対象は pendingRecordDeltas を空にした後に失敗するため、再キューする。
     pendingRecordDeltas = mergePendingRecordDeltas(lastAttemptDeltas, pendingRecordDeltas);
   } finally {
@@ -1401,7 +1410,7 @@ async function flushStudyTimePendingToCloud() {
     markSyncSuccess('studyTime', Date.now());
   } catch (e) {
     markSyncError('studyTime', e);
-    console.warn('学習時間同期(保存)エラー:', e);
+    warnCloudError('学習時間同期(保存):', e);
   } finally {
     cloudStudyFlushInFlight = false;
   }
@@ -1455,7 +1464,7 @@ async function pullStudyTimeFromCloudIfNeeded() {
     cloudStudyLoadedUid = uid;
   } catch (e) {
     markSyncError('studyTime', e);
-    console.warn('学習時間同期(取得)エラー:', e);
+    warnCloudError('学習時間同期(取得):', e);
   } finally {
     cloudStudyPullInFlight = false;
   }
