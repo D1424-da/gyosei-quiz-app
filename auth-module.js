@@ -132,6 +132,13 @@
       .includes(normalized);
   }
 
+  function isConfiguredAdminLoginUsername(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return false;
+    const username = String(window.APP_CONFIG?.adminLogin?.username || '').trim().toLowerCase();
+    return !!username && normalized === username;
+  }
+
   function showAppAsGuest() {
     const app = byId('app');
     const overlay = byId('login-overlay');
@@ -227,6 +234,12 @@
       let message = toAuthErrorMessage(e, 'ログインに失敗しました。');
       if (code === 'auth/user-not-found' && isConfiguredAdminEmail(email)) {
         message += ' adminEmails への登録は管理者判定用です。ログインには Firebase Authentication のユーザー作成が必要です。';
+      }
+      if (
+        ['auth/wrong-password', 'auth/invalid-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(code) &&
+        isConfiguredAdminLoginUsername(email)
+      ) {
+        message += ' このIDは管理者オーバーレイ用です。ヘッダーの「管理者ページ」から管理者ログインを実行してください。';
       }
       setError('login-error', message);
     }

@@ -12,6 +12,19 @@ function warnCloudError(label, e) {
   console.warn(label, e);
 }
 
+function isFirestoreConnectivityError(error) {
+  const code = String(error?.code || '').toLowerCase();
+  const msg = String(error?.message || error || '').toLowerCase();
+  if (code === 'unavailable' || code === 'deadline-exceeded') return true;
+  return (
+    msg.includes('could not reach cloud firestore backend') ||
+    msg.includes('backend didn\'t respond within 10 seconds') ||
+    msg.includes('webchannelconnection') ||
+    msg.includes('client is offline') ||
+    msg.includes('status: 1')
+  );
+}
+
  const KEY_QUESTIONS   = 'limb_questions';
 const KEY_RECORDS     = 'limb_records';    // パーユーザーキー: limb_records_<uid>
 const KEY_RECORDS_META = 'limb_records_meta'; // パーユーザーキー: limb_records_meta_<uid>
@@ -49,6 +62,7 @@ let unsubscribeRecordsRealtime = null;
 let unsubscribeStudyStatsRealtime = null;
 let unsubscribeStudyRecordsRealtime = null;
 let realtimeSubscribedUid = null;
+let firestoreRealtimeDisabled = false;
 let calendarPendingSync = false;
 let cloudCalendarFlushInFlight = false;
 let sessionSnapshotPendingSync = false;
@@ -756,6 +770,7 @@ function startCloudRealtimeSubscriptions() {
   const uid = getAuthUid();
   if (!uid) return;
   if (!(window.firebase && firebase.firestore)) return;
+  if (firestoreRealtimeDisabled) return;
   if (realtimeSubscribedUid === uid) return;
 
   stopCloudRealtimeSubscriptions();
@@ -802,6 +817,11 @@ function startCloudRealtimeSubscriptions() {
   }, (e) => {
     markSyncError('records', e);
     warnCloudError('クラウド成績リアルタイム同期:', e);
+    if (isFirestoreConnectivityError(e)) {
+      firestoreRealtimeDisabled = true;
+      stopCloudRealtimeSubscriptions();
+      console.info('Firestoreリアルタイム同期を一時停止しました。ローカルモードで継続します。');
+    }
   });
 
   unsubscribeStudyStatsRealtime = db.collection('study_stats').doc(uid).onSnapshot((snap) => {
@@ -811,7 +831,12 @@ function startCloudRealtimeSubscriptions() {
     markSyncSuccess('studyTime', Number((snap.data() || {}).updatedAtMs || Date.now()));
   }, (e) => {
     markSyncError('studyTime', e);
-    console.warn('学習時間リアルタイム同期(study_stats)エラー:', e);
+    warnCloudError('学習時間リアルタイム同期(study_stats)エラー:', e);
+    if (isFirestoreConnectivityError(e)) {
+      firestoreRealtimeDisabled = true;
+      stopCloudRealtimeSubscriptions();
+      console.info('Firestoreリアルタイム同期を一時停止しました。ローカルモードで継続します。');
+    }
   });
 
   unsubscribeStudyRecordsRealtime = db.collection('records').doc(uid).onSnapshot((snap) => {
@@ -822,7 +847,12 @@ function startCloudRealtimeSubscriptions() {
     markSyncSuccess('studyTime', Number((snap.data() || {}).studyUpdatedAtMs || Date.now()));
   }, (e) => {
     markSyncError('studyTime', e);
-    console.warn('学習時間リアルタイム同期(records)エラー:', e);
+    warnCloudError('学習時間リアルタイム同期(records)エラー:', e);
+    if (isFirestoreConnectivityError(e)) {
+      firestoreRealtimeDisabled = true;
+      stopCloudRealtimeSubscriptions();
+      console.info('Firestoreリアルタイム同期を一時停止しました。ローカルモードで継続します。');
+    }
   });
 
   realtimeSubscribedUid = uid;

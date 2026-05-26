@@ -13,6 +13,9 @@
 			if (!firebase.apps || !firebase.apps.length) {
 				firebase.initializeApp(firebaseConfig);
 			}
+			if (firebase.firestore && typeof firebase.firestore.setLogLevel === 'function') {
+				firebase.firestore.setLogLevel('error');
+			}
 		} catch (e) {
 			console.error('Firebase initialization failed:', e);
 		}
