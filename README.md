@@ -29,3 +29,9 @@ http://localhost:5500/index.html
 
 
 https://d1424-da.github.io/gyosei-quiz-app/
+
+## ログインできないときの確認
+- `firebase-config.js` の `adminEmails` は「管理者判定用」です。ここにメールを追加しても、Firebase Authentication のユーザー登録にはなりません。
+- ログインには Firebase Console の Authentication > Users でユーザーが存在するか、またはアプリの「新規ユーザー作成」で作成済みである必要があります。
+- Firebase Console の Authentication > Sign-in method で Email/Password を有効化してください。
+- 公開URLで使う場合は Authentication > Settings > Authorized domains に `d1424-da.github.io` を追加してください。

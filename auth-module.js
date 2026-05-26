@@ -72,7 +72,9 @@
       case 'auth/user-not-found':
         return 'このメールアドレスのユーザーは見つかりません。先に新規ユーザー作成を行ってください。';
       case 'auth/wrong-password':
+      case 'auth/invalid-password':
       case 'auth/invalid-credential':
+      case 'auth/invalid-login-credentials':
         return 'メールアドレスまたはパスワードが正しくありません。';
       case 'auth/user-disabled':
         return 'このユーザーは無効化されています。';
@@ -91,13 +93,14 @@
         break;
     }
 
-    if (raw.includes('CONFIGURATION_NOT_FOUND')) {
+    const rawUpper = raw.toUpperCase();
+    if (rawUpper.includes('CONFIGURATION_NOT_FOUND')) {
       return 'Firebase Authentication が未設定です。Firebase Console で Authentication を有効化してください。';
     }
-    if (raw.includes('OPERATION_NOT_ALLOWED')) {
+    if (rawUpper.includes('OPERATION_NOT_ALLOWED')) {
       return 'Email/Password 認証が無効です。Authentication > Sign-in method で有効化してください。';
     }
-    if (raw.includes('INVALID_LOGIN_CREDENTIALS')) {
+    if (rawUpper.includes('INVALID_LOGIN_CREDENTIALS')) {
       return 'メールアドレスまたはパスワードが正しくありません。';
     }
 
@@ -117,6 +120,16 @@
   function getUserLabel(user) {
     if (!user) return '';
     return user.displayName || user.email || 'ユーザー';
+  }
+
+  function isConfiguredAdminEmail(email) {
+    const normalized = String(email || '').trim().toLowerCase();
+    if (!normalized) return false;
+    const configured = Array.isArray(window.APP_CONFIG?.adminEmails) ? window.APP_CONFIG.adminEmails : [];
+    return configured
+      .map((v) => String(v || '').trim().toLowerCase())
+      .filter(Boolean)
+      .includes(normalized);
   }
 
   function showAppAsGuest() {
@@ -210,7 +223,12 @@
       setError('login-error', '');
       await auth.signInWithEmailAndPassword(email, password);
     } catch (e) {
-      setError('login-error', toAuthErrorMessage(e, 'ログインに失敗しました。'));
+      const code = String(e?.code || '').trim();
+      let message = toAuthErrorMessage(e, 'ログインに失敗しました。');
+      if (code === 'auth/user-not-found' && isConfiguredAdminEmail(email)) {
+        message += ' adminEmails への登録は管理者判定用です。ログインには Firebase Authentication のユーザー作成が必要です。';
+      }
+      setError('login-error', message);
     }
   }
 
