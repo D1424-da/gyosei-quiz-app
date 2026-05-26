@@ -403,7 +403,7 @@ foreach ($yearItem in $targetYears) {
 
             $yearQuestions += [PSCustomObject]@{
                 id = $qid
-                subject = "Gyosei-Shoshi"
+                subject = "行政書士"
                 category = $payload.Category
                 source = $payload.Title
                 questionText = $payload.QuestionText
