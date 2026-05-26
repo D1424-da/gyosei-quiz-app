@@ -2061,11 +2061,37 @@ function getCategories(subject = '') {
   )].sort();
 }
 
-// source は "H17-1" / "R7-1" 形式。年度キー部分（h17/r7）を返す
-function extractYearKey(source) {
-  if (!source) return null;
-  const m = source.match(/^([HhRr]\d+)/);
-  return m ? m[1].toLowerCase() : null;
+// source / id から年度キー（h17, r7 など）を抽出する
+function extractYearKey(source, id = '') {
+  const rawSource = String(source || '').trim();
+  const rawId = String(id || '').trim();
+
+  // 1) 既存形式: H17-1 / R7-1
+  const direct = rawSource.match(/^([HhRr]\d+)/);
+  if (direct) return direct[1].toLowerCase();
+
+  // 2) 日本語形式: 令和元年・2019 / 平成30年 など
+  const normalized = rawSource
+    .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
+    .replace(/\s+/g, '');
+
+  const reiwa = normalized.match(/令和(元|\d+)年/);
+  if (reiwa) {
+    const n = reiwa[1] === '元' ? 1 : Number(reiwa[1]);
+    if (Number.isFinite(n) && n > 0) return `r${n}`;
+  }
+
+  const heisei = normalized.match(/平成(\d+)年/);
+  if (heisei) {
+    const n = Number(heisei[1]);
+    if (Number.isFinite(n) && n > 0) return `h${n}`;
+  }
+
+  // 3) sourceが崩れていてもID（例: R1-2）から復元
+  const fromId = rawId.match(/^([HhRr]\d+)/);
+  if (fromId) return fromId[1].toLowerCase();
+
+  return null;
 }
 
 // 年度キー（h17, r7 等）を通し番号に変換（昇順ソート用）
@@ -2090,7 +2116,7 @@ function yearLabel(yk) {
 // 問題データに存在する年度キーを昇順で返す
 function getAvailableYears() {
   const keys = [...new Set(
-    questions.map(q => extractYearKey(q.source)).filter(Boolean)
+    questions.map(q => extractYearKey(q.source, q.id)).filter(Boolean)
   )];
   return keys.sort((a, b) => yearOrdinal(a) - yearOrdinal(b));
 }
@@ -2221,7 +2247,7 @@ function startSession() {
   // 年度フィルター
   if (yearFrom || yearTo) {
     limbs = limbs.filter(l => {
-      const k = extractYearKey(l.source);
+      const k = extractYearKey(l.source, l.questionId);
       if (!k) return true;
       const ord = yearOrdinal(k);
       if (yearFrom && ord < yearOrdinal(yearFrom)) return false;
@@ -2533,7 +2559,7 @@ function renderManage() {
       if (!hay.includes(keyword)) return false;
     }
     if (yearFrom || yearTo) {
-      const k = extractYearKey(q.source);
+      const k = extractYearKey(q.source, q.id);
       if (k) {
         const ord = yearOrdinal(k);
         if (yearFrom && ord < yearOrdinal(yearFrom)) return false;
