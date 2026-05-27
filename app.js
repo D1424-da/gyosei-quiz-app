@@ -4,24 +4,27 @@
 
 // ── ストレージキー ──────────────────────────────────────────
 
-// Firestore がオフライン状態のエラーは無音にする（通常の接続失敗のため）。
+// Firestore がオフライン・未作成・接続失敗のエラーは無音にする。
 function warnCloudError(label, e) {
-  const msg = (e && e.message) ? e.message : String(e);
-  const code = (e && e.code) ? e.code : '';
-  if (code === 'unavailable' || msg.includes('offline') || msg.includes('client is offline')) return;
+  if (isFirestoreConnectivityError(e)) return;
   console.warn(label, e);
 }
 
 function isFirestoreConnectivityError(error) {
   const code = String(error?.code || '').toLowerCase();
   const msg = String(error?.message || error || '').toLowerCase();
-  if (code === 'unavailable' || code === 'deadline-exceeded') return true;
+  const status = error?.status || error?.statusCode || 0;
+  if (code === 'unavailable' || code === 'deadline-exceeded' || code === 'not-found') return true;
+  // HTTP 404: Firestoreデータベース未作成 / HTTP 400: プロジェクト設定ミス
+  if (status === 404 || status === 400) return true;
   return (
     msg.includes('could not reach cloud firestore backend') ||
     msg.includes('backend didn\'t respond within 10 seconds') ||
     msg.includes('webchannelconnection') ||
     msg.includes('client is offline') ||
-    msg.includes('status: 1')
+    msg.includes('status: 1') ||
+    msg.includes('404') ||
+    msg.includes('not found')
   );
 }
 
@@ -3322,6 +3325,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => showPage(btn.dataset.page));
   });
+
+  const btnOpenManageFromAdmin = document.getElementById('btn-open-manage-from-admin');
+  if (btnOpenManageFromAdmin) {
+    btnOpenManageFromAdmin.addEventListener('click', () => showPage('manage'));
+  }
 
   [
     ['btn-open-register-from-stats', 'register'],

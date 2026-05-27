@@ -13,6 +13,12 @@
 			if (!firebase.apps || !firebase.apps.length) {
 				firebase.initializeApp(firebaseConfig);
 			}
+			if (firebase.firestore && typeof firebase.firestore === 'function') {
+				firebase.firestore().settings({
+					experimentalForceLongPolling: true,
+					useFetchStreams: false
+				});
+			}
 			if (firebase.firestore && typeof firebase.firestore.setLogLevel === 'function') {
 				firebase.firestore.setLogLevel('error');
 			}
