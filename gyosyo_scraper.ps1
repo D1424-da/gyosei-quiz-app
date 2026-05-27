@@ -14,6 +14,8 @@ $headers = @{
     "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
 }
 
+$comboMarkerClassText = 'アイウエオカキクケコ'
+
 function Get-Html {
     param([string]$Url)
     $resp = Invoke-WebRequest -Uri $Url -Headers $headers -UseBasicParsing -TimeoutSec 40
@@ -88,6 +90,103 @@ function Clean-TextAnswer {
     }
 
     return $value.Trim()
+}
+
+function Normalize-ComboMarkers {
+    param([string]$Text)
+
+    $value = Normalize-Digits (Strip-Html $Text)
+    if ([string]::IsNullOrWhiteSpace($value)) { return '' }
+    return [regex]::Replace($value, "[^$comboMarkerClassText]", '')
+}
+
+function Convert-ComboChoiceQuestionToOx {
+    param($Payload)
+
+    if ($null -eq $Payload) { return $null }
+    if ([string]$Payload.AnswerType -ne 'choice') { return $null }
+    if ($null -eq $Payload.Options -or $Payload.Options.Count -lt 2) { return $null }
+
+    $lines = @(
+        ([string]$Payload.QuestionText -split "`r`n|`r|`n") |
+            ForEach-Object { [string]($_).Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    if ($lines.Count -lt 3) { return $null }
+
+    $promptLines = @()
+    $statements = @()
+    $statementStarted = $false
+    foreach ($line in $lines) {
+        $m = [regex]::Match($line, "^([$comboMarkerClassText])[\.．。：:]?\s*(.+)$")
+        if ($m.Success) {
+            $statementStarted = $true
+            $statements += [PSCustomObject]@{
+                Key = $m.Groups[1].Value
+                Text = $m.Groups[2].Value.Trim()
+                SourceText = $line.Trim()
+            }
+            continue
+        }
+
+        if (-not $statementStarted) {
+            $promptLines += $line
+        }
+    }
+
+    if ($statements.Count -lt 3) { return $null }
+
+    $normalizedOptions = @($Payload.Options | ForEach-Object { Normalize-ComboMarkers $_ })
+    if (($normalizedOptions | Where-Object { $_.Length -lt 2 }).Count -gt 0) { return $null }
+
+    $answerCombo = ''
+    if ($Payload.AnswerNumber -ge 1 -and $Payload.AnswerNumber -le $normalizedOptions.Count) {
+        $answerCombo = $normalizedOptions[$Payload.AnswerNumber - 1]
+    }
+    if ([string]::IsNullOrWhiteSpace($answerCombo) -and -not [string]::IsNullOrWhiteSpace($Payload.AnswerText)) {
+        $answerCombo = Normalize-ComboMarkers $Payload.AnswerText
+    }
+    if ([string]::IsNullOrWhiteSpace($answerCombo)) { return $null }
+
+    $statementKeys = @($statements | ForEach-Object { $_.Key })
+    foreach ($ch in $answerCombo.ToCharArray()) {
+        if ($statementKeys -notcontains ([string]$ch)) { return $null }
+    }
+
+    $negativeMarkers = @(
+        '妥当でないもの',
+        '誤っているもの',
+        '誤りであるもの',
+        '不適当なもの',
+        '正しくないもの',
+        '適切でないもの'
+    )
+    $questionNorm = Normalize-Digits ([string]$Payload.QuestionText)
+    $isNegativePrompt = $false
+    foreach ($marker in $negativeMarkers) {
+        if ($questionNorm.Contains($marker)) {
+            $isNegativePrompt = $true
+            break
+        }
+    }
+
+    $convertedStatements = @()
+    foreach ($statement in $statements) {
+        $included = $answerCombo.Contains($statement.Key)
+        $convertedStatements += [PSCustomObject]@{
+            Key = $statement.Key
+            Text = $statement.Text
+            SourceText = $statement.SourceText
+            Correct = $(if ($isNegativePrompt) { -not $included } else { $included })
+        }
+    }
+
+    return [PSCustomObject]@{
+        PromptText = ($promptLines -join "`n").Trim()
+        Statements = $convertedStatements
+        AnswerCombo = $answerCombo
+        IsNegativePrompt = $isNegativePrompt
+    }
 }
 
 function Get-YearKeyFromString {
@@ -380,6 +479,10 @@ foreach ($yearItem in $targetYears) {
 
             $qid = "${prefix}-$($q.Number)"
             $limbs = @()
+            $questionText = $payload.QuestionText
+            $answerType = $payload.AnswerType
+            $correctOption = $payload.AnswerNumber
+            $convertedCombo = Convert-ComboChoiceQuestionToOx -Payload $payload
             if ($payload.AnswerType -eq 'text') {
                 $limbs += [PSCustomObject]@{
                     id = "${qid}-l0"
@@ -388,6 +491,19 @@ foreach ($yearItem in $targetYears) {
                     correctText = $payload.AnswerText
                     acceptedAnswers = @($payload.AcceptedAnswerTexts)
                     explanation = $payload.Explanation
+                }
+            } elseif ($null -ne $convertedCombo) {
+                $questionText = $convertedCombo.PromptText
+                $answerType = 'ox'
+                $correctOption = 0
+                for ($i = 0; $i -lt $convertedCombo.Statements.Count; $i++) {
+                    $statement = $convertedCombo.Statements[$i]
+                    $limbs += [PSCustomObject]@{
+                        id = "${qid}-l$i"
+                        text = $statement.Text
+                        correct = [bool]$statement.Correct
+                        explanation = $statement.SourceText
+                    }
                 }
             } else {
                 for ($i = 0; $i -lt $payload.Options.Count; $i++) {
@@ -406,11 +522,11 @@ foreach ($yearItem in $targetYears) {
                 subject = "行政書士"
                 category = $payload.Category
                 source = $payload.Title
-                questionText = $payload.QuestionText
+                questionText = $questionText
                 limbs = $limbs
                 questionUrl = $q.Url
-                correctOption = $payload.AnswerNumber
-                answerType = $payload.AnswerType
+                correctOption = $correctOption
+                answerType = $answerType
             }
         } catch {
             Write-Warning "Skip Q$($q.Number): $($_.Exception.Message)"
