@@ -21,6 +21,40 @@ py -m http.server 5500
 
 http://localhost:5500/index.html
 
+## 問題データの再生成
+
+キャッシュフォルダ内のHTMLファイルから問題データを再生成できます。
+
+### 全年度を一括再生成
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\gyosyo_scraper.ps1 -Offline -All
+```
+
+### 特定年度のみ再生成
+
+例: 令和7年度のみ再生成
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\gyosyo_scraper.ps1 -Offline -Year r7
+```
+
+**利用可能な年度指定:**
+- `h21`, `h22`, ..., `h30` (平成21年～30年)
+- `r1`, `r2`, ..., `r7` (令和元年～7年)
+
+### 生成されるファイル
+
+`output` フォルダに以下のJSONファイルが生成されます:
+- `gyosyo_h21_questions.json` ～ `gyosyo_r7_questions.json` (各年度ごと)
+- `gyosyo_all_questions.json` (全年度統合版)
+
+### 検証レポート
+
+再生成時に自動的に以下の検証ファイルも生成されます:
+- `validation_summary.json` - 全体サマリー（ファイル数、問題数、エラー数など）
+- `validation_questiontext_issues.csv` - 問題テキストが空の問題のリスト
+
 ## 次のステップ
 1. 新しい Firebase プロジェクトを作成する
 2. firebase-config.js に Web アプリ設定を追加する
