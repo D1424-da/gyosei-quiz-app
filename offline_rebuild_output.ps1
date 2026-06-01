@@ -19,7 +19,7 @@ if ($yearFiles.Count -eq 0) {
 
 $jsonBodies = @()
 foreach ($f in $yearFiles) {
-    $raw = [string](Get-Content -Raw -LiteralPath $f.FullName)
+    $raw = [string](Get-Content -Raw -Encoding UTF8 -LiteralPath $f.FullName)
     $trimmed = $raw.Trim()
     if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
 
