@@ -444,6 +444,26 @@ function Extract-QuestionPayload {
         if ([string]::IsNullOrWhiteSpace($txt)) { continue }
         $questionParagraphs += $txt
     }
+
+    # Some pages place the question stem directly in the block body instead of wrapping it in <p> tags.
+    # In that case, capture the leading prose before the first option list or answer link.
+    if ($questionParagraphs.Count -eq 0) {
+        $leadMatch = [regex]::Match($toiHtml, '(?is)^(.*?)(?=<(?:ul|ol|div\s+id="kaitou"|a\s+name="kotae")|\z)')
+        if ($leadMatch.Success) {
+            $leadText = Strip-Html $leadMatch.Groups[1].Value
+            if (-not [string]::IsNullOrWhiteSpace($leadText)) {
+                $questionParagraphs += $leadText
+            }
+        }
+    }
+
+    if ($questionParagraphs.Count -eq 0) {
+        $fallbackText = Strip-Html $toiHtml
+        if (-not [string]::IsNullOrWhiteSpace($fallbackText)) {
+            $questionParagraphs += $fallbackText
+        }
+    }
+
     $questionText = ($questionParagraphs -join "`n").Trim()
     $questionText = $questionText -replace '\\r\\n', "`n"
     $questionText = $questionText -replace '\\n', "`n"
@@ -771,10 +791,12 @@ foreach ($yearItem in $targetYears) {
             } else {
                 for ($i = 0; $i -lt $payload.Options.Count; $i++) {
                     $idx = $i + 1
+                    $isSelected = ($idx -eq $payload.AnswerNumber)
+                    $isStatementTrue = if ($isInvertedComboQuestion) { -not $isSelected } else { $isSelected }
                     $limbs += [PSCustomObject]@{
                         id = "${qid}-l$i"
                         text = $payload.Options[$i]
-                        correct = ($idx -eq $payload.AnswerNumber)
+                        correct = [bool]$isStatementTrue
                         explanation = $payload.Explanation
                     }
                 }
@@ -782,7 +804,7 @@ foreach ($yearItem in $targetYears) {
 
             $questionObject = [PSCustomObject]@{
                 id = $qid
-                subject = "行政書士"
+                subject = ([string]([char]0x884C) + [char]0x653F + [char]0x66F8 + [char]0x58EB)
                 category = $payload.Category
                 source = $payload.Title
                 questionText = $payload.QuestionText
@@ -813,7 +835,9 @@ foreach ($yearItem in $targetYears) {
 
 if ($allQuestions.Count -gt 0) {
     $allFile = Join-Path (Resolve-Path $OutDir).Path "gyosyo_all_questions.json"
+    $legacyAllFile = Join-Path (Resolve-Path $OutDir).Path "all_questions.json"
     [System.IO.File]::WriteAllText($allFile, (ConvertTo-Json -Depth 10 -InputObject @($allQuestions)), [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($legacyAllFile, (ConvertTo-Json -Depth 10 -InputObject @($allQuestions)), [System.Text.Encoding]::UTF8)
     Write-Host ""
     Write-Host ("Total extracted: {0}" -f $allQuestions.Count)
     Write-Host ("Merged file: {0}" -f $allFile)

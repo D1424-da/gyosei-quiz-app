@@ -999,6 +999,89 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "verify subject fix single question",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Offline",
+				"-Year",
+				"h22",
+				"-StartQuestion",
+				"1",
+				"-EndQuestion",
+				"1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "regenerate all offline after subject fix",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Offline",
+				"-All"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "regenerate alias outputs offline",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Offline",
+				"-All"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "measure question json size",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; Get-Item .\\output\\all_questions.json | Select-Object Name,Length"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "measure yearly json sizes",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; Get-ChildItem .\\output\\gyosyo_*_questions.json | Where-Object { $_.Name -ne 'gyosyo_all_questions.json' -and $_.Name -ne 'all_questions.json' } | Sort-Object Name | Select-Object Name,Length"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

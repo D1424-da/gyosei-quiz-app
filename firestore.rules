@@ -9,6 +9,16 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    function isAdminEmail() {
+      return isSignedIn() && request.auth.token.email == 'd.i.a.0101@gmail.com';
+    }
+
+    // 共有の問題本体。年別ドキュメントで分割して保存する。
+    match /question_bank_years/{yearKey} {
+      allow read: if true;
+      allow write: if isAdminEmail();
+    }
+
     // 現行形式: docId = uid
     match /question_sets/{uid} {
       allow read, write: if isOwnDoc(uid);
