@@ -2296,7 +2296,10 @@ function getAllLimbs(filterSubject = '', filterCategory = '', splitInlineForStat
     if (filterSubject  && q.subject  !== filterSubject)  continue;
     if (normalizedFilterCategory && normalizeCategoryLabel(q.category) !== normalizedFilterCategory) continue;
 
-    for (const limb of q.limbs) {
+    const questionLimbs = Array.isArray(q?.limbs) ? q.limbs : [];
+    if (questionLimbs.length === 0) continue;
+
+    for (const limb of questionLimbs) {
       if (splitInlineForStats) {
         const items = parseInlineOxItems(limb.text || '');
         const expected = getInlineOxExpectedAnswers(limb, items);
