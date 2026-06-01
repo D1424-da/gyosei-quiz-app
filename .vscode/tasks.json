@@ -186,6 +186,19 @@
 				"-OfflineMergeOnly"
 			],
 			"problemMatcher": []
+		},
+		{
+			"label": "validate-all-questions-json",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\validate_questions_json.ps1"
+			],
+			"problemMatcher": []
 		}
 	]
 }

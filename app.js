@@ -1731,7 +1731,18 @@ async function resetStudyTime() {
 
 function loadData() {
   currentUser = getActiveUser();
-  try { questions = JSON.parse(storageGetItem(KEY_QUESTIONS)) || []; } catch { questions = []; }
+  let loadedQuestions = [];
+  try {
+    loadedQuestions = JSON.parse(storageGetItem(KEY_QUESTIONS)) || [];
+  } catch {
+    loadedQuestions = [];
+  }
+  // localStorage 保存に失敗したケースでも、既にメモリ上にある問題データは維持する。
+  if (Array.isArray(loadedQuestions) && loadedQuestions.length > 0) {
+    questions = loadedQuestions;
+  } else if (!Array.isArray(questions)) {
+    questions = [];
+  }
   const authUid = getAuthUid();
   const rk = getRecordStorageKey(authUid);
   try { records = normalizeRecordMap(JSON.parse(storageGetItem(rk)) || {}); } catch { records = {}; }
