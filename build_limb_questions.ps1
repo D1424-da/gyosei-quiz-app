@@ -136,7 +136,31 @@ function Get-WakuAMap([string]$KaitouHtml) {
     return $map
 }
 
-# ---- メイン処理 ----
+# Extract only the lead sentence (before any kata/numeric limb lines)
+function Get-LeadText([string]$Text) {
+    if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
+    # kata marker pattern: line starting with ア〜コ followed by separator
+    $kataMarkerPat = [regex]'(?m)^[ \t\u3000]*[\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3][\s\u3000\.\uff0e\.\u3001,::\uff1a\-]'
+    # number marker pattern: line starting with 1-5 followed by separator or 1.〜5.
+    $numMarkerPat  = [regex]'(?m)^[ \t\u3000]*[1-5\uff11-\uff15][\s\u3000\.\uff0e\.\u3001,::\uff1a]'
+    $km = $kataMarkerPat.Match($Text)
+    $nm = $numMarkerPat.Match($Text)
+
+    $cutPos = $Text.Length
+    if ($km.Success -and $km.Index -lt $cutPos) { $cutPos = $km.Index }
+    if ($nm.Success -and $nm.Index -lt $cutPos) { $cutPos = $nm.Index }
+
+    # Also cut at first inline kata marker (e.g. "ア．" not at line start)
+    if ($cutPos -eq $Text.Length) {
+        $inlineM = [regex]::Match($Text, '[\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3][\uff0e\.]')
+        if ($inlineM.Success) { $cutPos = $inlineM.Index }
+    }
+
+    $lead = $Text.Substring(0, $cutPos).TrimEnd()
+    return $lead.TrimEnd()
+}
+
+# ---- Main ----
 Write-Host "Loading $InputJson ..."
 $all = Get-Content $InputJson -Raw -Encoding UTF8 | ConvertFrom-Json
 Write-Host "Loaded $($all.Count) questions."
@@ -207,7 +231,7 @@ foreach ($q in $all) {
                     subject        = [string]$q.subject
                     category       = [string]$q.category
                     source         = [string]$q.source
-                    questionText   = [string]$q.questionText
+                    questionText   = Get-LeadText ([string]$q.questionText)
                     limbText       = [string]$limb.text
                     limbIndex      = $li
                     correct        = [bool]$correct
@@ -238,7 +262,7 @@ foreach ($q in $all) {
                     subject        = [string]$q.subject
                     category       = [string]$q.category
                     source         = [string]$q.source
-                    questionText   = [string]$q.questionText
+                    questionText   = Get-LeadText ([string]$q.questionText)
                     limbText       = [string]$limb.text
                     limbIndex      = $li
                     correct        = [bool]$limb.correct
