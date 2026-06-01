@@ -1,0 +1,44 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "offline-rebuild-output-json",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"$files = Get-ChildItem .\\output\\gyosyo_*_questions.json | Where-Object { $_.Name -ne 'gyosyo_all_questions.json' } | Sort-Object Name; if ($files.Count -eq 0) { throw 'no per-year files'; }; $all = @(); foreach ($f in $files) { $parsed = Get-Content -Raw -LiteralPath $f.FullName | ConvertFrom-Json; if ($parsed -is [System.Array]) { $all += $parsed } else { $all += ,$parsed } }; if ($all.Count -eq 0) { throw 'no questions'; }; if ($all.Count -eq 1) { $json = \"[\" + [Environment]::NewLine + (ConvertTo-Json -Depth 10 -InputObject $all[0]) + [Environment]::NewLine + \"]\" } else { $json = ConvertTo-Json -Depth 10 -InputObject @($all) }; [System.IO.File]::WriteAllText((Resolve-Path .\\output\\gyosyo_all_questions.json), $json, [System.Text.Encoding]::UTF8); [System.IO.File]::WriteAllText((Resolve-Path .\\output\\all_questions.json), $json, [System.Text.Encoding]::UTF8); Write-Host \"offline rebuilt: files=$($files.Count), questions=$($all.Count)\""
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "offline-rebuild-output-json-file",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\offline_rebuild_output.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "offline-rebuild-output-json-file-2",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\offline_rebuild_output.ps1"
+			],
+			"problemMatcher": []
+		}
+	]
+}

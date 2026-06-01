@@ -15,6 +15,9 @@ powershell -ExecutionPolicy Bypass -File .\gyosyo_scraper.ps1 -Year h24 -StartQu
 
 # All years found on index page
 powershell -ExecutionPolicy Bypass -File .\gyosyo_scraper.ps1 -All -StartQuestion 1 -EndQuestion 60
+
+# Offline rebuild from existing output/*.json only (no website access)
+powershell -ExecutionPolicy Bypass -File .\gyosyo_scraper.ps1 -OfflineMergeOnly
 ```
 
 ## Output

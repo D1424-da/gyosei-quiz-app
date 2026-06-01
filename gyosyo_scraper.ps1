@@ -4,7 +4,8 @@ param(
     [string]$Year = "",
     [int]$StartQuestion = 1,
     [int]$EndQuestion = 60,
-    [switch]$All
+    [switch]$All,
+    [switch]$OfflineMergeOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -184,6 +185,55 @@ function Parse-KataStatements {
         $items += [PSCustomObject]@{ Marker = $marker; Text = $text }
     }
     return $items
+}
+
+function Merge-LocalOutputFiles {
+    param([string]$TargetOutDir)
+
+    if (-not (Test-Path $TargetOutDir)) {
+        throw "output directory not found: $TargetOutDir"
+    }
+
+    $resolvedOutDir = (Resolve-Path $TargetOutDir).Path
+    $yearFiles = @(Get-ChildItem -LiteralPath $resolvedOutDir -Filter 'gyosyo_*_questions.json' -File |
+        Where-Object { $_.Name -ne 'gyosyo_all_questions.json' } |
+        Sort-Object Name)
+
+    if ($yearFiles.Count -eq 0) {
+        throw "no per-year files found under: $resolvedOutDir"
+    }
+
+    $jsonBodies = @()
+    foreach ($f in $yearFiles) {
+        $raw = [string](Get-Content -Raw -LiteralPath $f.FullName)
+        $trimmed = $raw.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
+
+        if (-not ($trimmed.StartsWith('[') -and $trimmed.EndsWith(']'))) {
+            throw "invalid JSON array file: $($f.FullName)"
+        }
+
+        $inner = $trimmed.Substring(1, $trimmed.Length - 2).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($inner)) {
+            $jsonBodies += $inner
+        }
+    }
+
+    if ($jsonBodies.Count -eq 0) {
+        throw "no questions found in local per-year files"
+    }
+
+    $json = "[" + [Environment]::NewLine + ($jsonBodies -join ("," + [Environment]::NewLine)) + [Environment]::NewLine + "]"
+    $mergedFile = Join-Path $resolvedOutDir 'gyosyo_all_questions.json'
+    $appFile = Join-Path $resolvedOutDir 'all_questions.json'
+
+    [System.IO.File]::WriteAllText($mergedFile, $json, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($appFile, $json, [System.Text.Encoding]::UTF8)
+
+    Write-Host "[offline] merged from local files: $($yearFiles.Count)"
+    Write-Host "[offline] merged items from non-empty files: $($jsonBodies.Count)"
+    Write-Host "[offline] wrote: $mergedFile"
+    Write-Host "[offline] wrote: $appFile"
 }
 
 
@@ -467,6 +517,11 @@ function Extract-QuestionPayload {
 
 if (-not (Test-Path $OutDir)) {
     New-Item -ItemType Directory -Path $OutDir | Out-Null
+}
+
+if ($OfflineMergeOnly) {
+    Merge-LocalOutputFiles -TargetOutDir $OutDir
+    return
 }
 
 Write-Host "[1/4] Fetch year index"
