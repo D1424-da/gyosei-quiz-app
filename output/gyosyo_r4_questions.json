@@ -214,7 +214,7 @@
         "subject":  "行政書士",
         "category":  "憲法",
         "source":  "令和4年・2022｜問6｜憲法",
-        "questionText":  "",
+        "questionText":  "内閣の権限に関する次の記述のうち、憲法の規定に照らし、妥当なものはどれか。",
         "limbs":  [
                       {
                           "id":  "R4-6-l0",
@@ -256,7 +256,7 @@
         "subject":  "行政書士",
         "category":  "憲法",
         "source":  "令和4年・2022｜問7｜憲法",
-        "questionText":  "",
+        "questionText":  "裁判の公開に関する次の記述のうち、最高裁判所の判例に照らし、妥当なものはどれか。",
         "limbs":  [
                       {
                           "id":  "R4-7-l0",
