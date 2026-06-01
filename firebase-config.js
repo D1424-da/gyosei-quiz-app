@@ -15,7 +15,7 @@
 			}
 			if (firebase.firestore && typeof firebase.firestore === 'function') {
 				firebase.firestore().settings({
-					experimentalForceLongPolling: true,
+					experimentalAutoDetectLongPolling: true,
 					useFetchStreams: false,
 					merge: true
 				});
