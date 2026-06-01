@@ -6,7 +6,8 @@ param(
     [int]$StartQuestion = 1,
     [int]$EndQuestion = 60,
     [switch]$All,
-    [switch]$Offline
+    [switch]$Offline,
+    [switch]$AllowNetwork
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,8 +36,8 @@ function Get-Html {
         return [System.IO.File]::ReadAllText($cachePath, [System.Text.Encoding]::UTF8)
     }
 
-    if ($Offline) {
-        throw "cache miss in offline mode: $Url"
+    if ($Offline -or -not $AllowNetwork) {
+        throw "cache miss without network access: $Url"
     }
 
     $resp = Invoke-WebRequest -Uri $Url -Headers $headers -UseBasicParsing -TimeoutSec 40

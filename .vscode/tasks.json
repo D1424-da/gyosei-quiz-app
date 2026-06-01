@@ -806,6 +806,199 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "verify no-network default",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Offline",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify cache-only default",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "regen all years with cache",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-AllowNetwork",
+				"-All"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "count regenerated questions",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; $files = Get-ChildItem .\\output\\gyosyo_*_questions.json | Where-Object { $_.Name -ne 'gyosyo_all_questions.json' }; $total = 0; foreach ($f in $files) { $total += ((Get-Content -Raw $f.FullName | ConvertFrom-Json).Count) }; Write-Host ('FILES=' + $files.Count); Write-Host ('TOTAL=' + $total)"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "write regen summary",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; $files = Get-ChildItem .\\output\\gyosyo_*_questions.json | Where-Object { $_.Name -ne 'gyosyo_all_questions.json' }; $total = 0; foreach ($f in $files) { $total += ((Get-Content -Raw $f.FullName | ConvertFrom-Json).Count) }; Set-Content -Path .\\output\\regen_summary.txt -Value (\"FILES=$($files.Count)`nTOTAL=$total\") -Encoding UTF8"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check tracked cache files",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; $tracked = git ls-files cache/html; if ($tracked) { $tracked.Count } else { 0 }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "list tracked cache files",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; git ls-files cache/html"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "untrack cache files",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; git rm --cached cache/html/2ac882ec6eb16096ae72dfd3e8779f06d60a8a445e9dd343d745eb16b5a012a3.html cache/html/5d9881559ba6b78baea66003a3f7ba0fdc9696e37ea18a30e718bdc9798b5b3a.html cache/html/b7d0f18c5d901a5c15d59b14980bac7c9ee8cae0b25b45c9eb43472adfcf2304.html"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "offline full verify",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Offline",
+				"-All"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "git status after cache ignore",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; git status --short"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "offline all verify logged",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; $log = '.\\output\\offline_all_verify.log'; powershell -ExecutionPolicy Bypass -File .\\gyosyo_scraper.ps1 -Offline -All *>&1 | Tee-Object -FilePath $log | Out-Null; Get-Item $log | Select-Object FullName,Length"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check offline log exists",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-Command",
+				"Set-Location 'F:\\開発中アプリ\\行政書士'; if (Test-Path .\\output\\offline_all_verify.log) { Get-Item .\\output\\offline_all_verify.log | Select-Object FullName,Length } else { 'MISSING' }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }
