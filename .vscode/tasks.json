@@ -412,6 +412,400 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"
+		},
+		{
+			"label": "debug combo conversion conditions",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$q=(Get-Content .\\output\\gyosyo_h30_questions.json -Raw | ConvertFrom-Json)[0]; function Normalize-KataCombo([string]$Text){ if([string]::IsNullOrWhiteSpace($Text)){ return '' }; return ([regex]::Replace($Text,'[^アイウエオカキクケコ]','')) }; function Test-ComboOptionText([string]$Text){ if([string]::IsNullOrWhiteSpace($Text)){ return $false }; $compact=Normalize-KataCombo $Text; if([string]::IsNullOrWhiteSpace($compact)){ return $false }; return ($compact -match '^[アイウエオカキクケコ]{2,5}$') }; $selectedIndex=[int]$q.correctOption; $selectedText=[string]$q.limbs[$selectedIndex-1].text; 'selectedText=' + $selectedText; 'selectedOk=' + (Test-ComboOptionText $selectedText); $questionText=$q.questionText; $patterns=@('(?ms)(?:^|\\n)\\s*([アイウエオカキクケコ])[\\s　\\.．、,:：\\-]+\\s*(.+?)(?=(?:\\n\\s*[アイウエオカキクケコ][\\s　\\.．、,:：\\-]+)|\\z)','(?ms)([アイウエオカキクケコ])[\\s　\\.．、,:：\\-]+\\s*(.+?)(?=(?:[\\s　]*[アイウエオカキクケコ][\\s　\\.．、,:：\\-]+)|\\z)'); foreach($pat in $patterns){ $hits=[regex]::Matches($questionText,$pat); 'pat hits=' + $hits.Count; foreach($h in $hits){ $h.Groups[1].Value + ':' + $h.Groups[2].Value } if($hits.Count -gt 0){ break } }; $lines=@($questionText -split '\\r?\\n'); 'lineCount=' + $lines.Count; foreach($line in $lines){ if($line -match '^\\s*([アイウエオカキクケコ])[\\s　\\.．、,:：-]+(.+)$'){ $Matches[1] + ':' + $Matches[2] } }"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo final",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "debug combo runtime values",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo runtime2",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "debug question text runtime",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate combo after newline normalize",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check newline type runtime",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate combo after payload fix",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "check split count runtime",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "print split lines runtime",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate combo after marker parser",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate combo after codepoint parser",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate final combo output",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "debug combo compare inputs",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "debug combo normalization",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate normalized combo fix",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "final verify combo output clean",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "final clean run",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "warm html cache",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "verify offline cache run",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Offline",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

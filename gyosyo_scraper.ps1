@@ -1,10 +1,12 @@
 param(
     [string]$IndexUrl = "https://gyosyo.info/%E8%A1%8C%E6%94%BF%E6%9B%B8%E5%A3%AB%E3%81%AE%E9%81%8E%E5%8E%BB%E5%95%8F%E9%9B%86%EF%BC%88%E5%95%8F%E9%A1%8C%E3%81%A8%E8%A7%A3%E8%AA%AC%EF%BC%89/",
     [string]$OutDir = ".\\output",
+    [string]$CacheDir = ".\cache\html",
     [string]$Year = "",
     [int]$StartQuestion = 1,
     [int]$EndQuestion = 60,
-    [switch]$All
+    [switch]$All,
+    [switch]$Offline
 )
 
 $ErrorActionPreference = "Stop"
@@ -16,8 +18,31 @@ $headers = @{
 
 function Get-Html {
     param([string]$Url)
+    if (-not (Test-Path $CacheDir)) {
+        New-Item -ItemType Directory -Path $CacheDir -Force | Out-Null
+    }
+
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($Url)
+        $hash = ($sha.ComputeHash($bytes) | ForEach-Object { $_.ToString('x2') }) -join ''
+    } finally {
+        $sha.Dispose()
+    }
+
+    $cachePath = Join-Path $CacheDir ($hash + '.html')
+    if (Test-Path $cachePath) {
+        return [System.IO.File]::ReadAllText($cachePath, [System.Text.Encoding]::UTF8)
+    }
+
+    if ($Offline) {
+        throw "cache miss in offline mode: $Url"
+    }
+
     $resp = Invoke-WebRequest -Uri $Url -Headers $headers -UseBasicParsing -TimeoutSec 40
-    return [System.Text.Encoding]::UTF8.GetString($resp.RawContentStream.ToArray())
+    $html = [System.Text.Encoding]::UTF8.GetString($resp.RawContentStream.ToArray())
+    [System.IO.File]::WriteAllText($cachePath, $html, [System.Text.Encoding]::UTF8)
+    return $html
 }
 
 function Strip-Html {
@@ -93,7 +118,20 @@ function Clean-TextAnswer {
 function Normalize-KataCombo {
     param([string]$Text)
     if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
-    return ([regex]::Replace($Text, '[^アイウエオカキクケコ]', ''))
+    $allowedChars = @(
+        [char]0x30A2,
+        [char]0x30A4,
+        [char]0x30A6,
+        [char]0x30A8,
+        [char]0x30AA,
+        [char]0x30AB,
+        [char]0x30AD,
+        [char]0x30AF,
+        [char]0x30B1,
+        [char]0x30B3
+    )
+    $allowedText = ($allowedChars -join '')
+    return ([regex]::Replace($Text, "[^$allowedText]", ''))
 }
 
 function Format-KataCombo {
@@ -406,13 +444,8 @@ function Extract-QuestionPayload {
         $questionParagraphs += $txt
     }
     $questionText = ($questionParagraphs -join "`n").Trim()
-
-    if ($kataStatements.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($questionText)) {
-        $kataStatements = Parse-KataStatements -Paragraphs @($questionText -split '\r?\n')
-        if ($kataStatements.Count -eq 0) {
-            $kataStatements = Extract-KataStatementsFromText $questionText
-        }
-    }
+    $questionText = $questionText -replace '\\r\\n', "`n"
+    $questionText = $questionText -replace '\\n', "`n"
 
     $comboChoiceMap = @{}
     foreach ($line in $questionParagraphs) {
@@ -423,7 +456,54 @@ function Extract-QuestionPayload {
         }
     }
 
-    $kataStatements = Parse-KataStatements -Paragraphs $questionParagraphs
+    $kataStatements = @()
+    $kataMarkersSet = @(
+        [string][char]0x30A2,
+        [string][char]0x30A4,
+        [string][char]0x30A6,
+        [string][char]0x30A8,
+        [string][char]0x30AA,
+        [string][char]0x30AB,
+        [string][char]0x30AD,
+        [string][char]0x30AF,
+        [string][char]0x30B1,
+        [string][char]0x30B3
+    )
+    $statementTrimChars = @(
+        [char]0x20,
+        [char]0x3000,
+        [char]0x2E,
+        [char]0xFF0E,
+        [char]0x3001,
+        [char]0x2C,
+        [char]0x3A,
+        [char]0xFF1A,
+        [char]0x2D,
+        [char]0x30FB
+    )
+    foreach ($line in $questionParagraphs) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $trimmedLine = $line.Trim()
+        if ($trimmedLine.Length -lt 3) { continue }
+        $marker = [string]$trimmedLine[0]
+        if ($kataMarkersSet -notcontains $marker) { continue }
+        $text = $trimmedLine.Substring(1).TrimStart($statementTrimChars)
+        if (-not [string]::IsNullOrWhiteSpace($text)) {
+            $kataStatements += [PSCustomObject]@{ Marker = $marker; Text = $text }
+        }
+    }
+    if ($kataStatements.Count -lt 4 -and -not [string]::IsNullOrWhiteSpace($questionText)) {
+        foreach ($line in @($questionText -split '\r?\n')) {
+            $trimmedLine = $line.Trim()
+            if ($trimmedLine.Length -lt 3) { continue }
+            $marker = [string]$trimmedLine[0]
+            if ($kataMarkersSet -notcontains $marker) { continue }
+            $text = $trimmedLine.Substring(1).TrimStart($statementTrimChars)
+            if (-not [string]::IsNullOrWhiteSpace($text)) {
+                $kataStatements += [PSCustomObject]@{ Marker = $marker; Text = $text }
+            }
+        }
+    }
     $isInvertedComboQuestion = $questionText -match '誤っているもの|妥当でないもの|適切でないもの|誤りであるもの|誤りはどれか'
 
     # options are li tags in the question block
@@ -632,11 +712,42 @@ foreach ($yearItem in $targetYears) {
 
             $qid = "${prefix}-$($q.Number)"
             $limbs = @()
-            if ($payload.AnswerType -eq 'combo_ox') {
-                $combo = Normalize-KataCombo $payload.ComboAnswer
+            $comboOptionList = ($payload.Options.Count -gt 0) -and (@($payload.Options | Where-Object { Test-ComboOptionText $_ }).Count -eq $payload.Options.Count)
+            $statementItems = @($payload.CombinationStatements)
+            if ($statementItems.Count -lt 4 -and -not [string]::IsNullOrWhiteSpace($payload.QuestionText)) {
+                $statementItems = @()
+                $statementPatterns = @(
+                    '(?ms)(?:^|\n)\s*([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:\n\s*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)',
+                    '(?ms)([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:[\s　]*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)'
+                )
+                foreach ($statementPattern in $statementPatterns) {
+                    $statementMatches = [regex]::Matches($payload.QuestionText, $statementPattern)
+                    foreach ($statementMatch in $statementMatches) {
+                        $statementItems += [PSCustomObject]@{
+                            Marker = $statementMatch.Groups[1].Value
+                            Text = $statementMatch.Groups[2].Value.Trim()
+                        }
+                    }
+                    if ($statementItems.Count -ge 4) { break }
+                }
+                if ($statementItems.Count -lt 4) {
+                    foreach ($line in @($payload.QuestionText -split '\r?\n')) {
+                        if ($line -match '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$') {
+                            $statementItems += [PSCustomObject]@{ Marker = $Matches[1]; Text = $Matches[2].Trim() }
+                        }
+                    }
+                }
+            }
+
+            $useComboOx = ($payload.AnswerType -eq 'choice' -and $statementItems.Count -ge 4 -and $payload.AnswerNumber -gt 0)
+
+            if ($payload.AnswerType -eq 'combo_ox' -or $useComboOx) {
+                $comboSource = if ($payload.AnswerType -eq 'combo_ox' -and -not [string]::IsNullOrWhiteSpace($payload.ComboAnswer)) { $payload.ComboAnswer } else { ([string]$payload.Options[$payload.AnswerNumber - 1]) }
+                $combo = Normalize-KataCombo $comboSource
                 $isInverted = [bool]$payload.ComboIsInverted
-                for ($i = 0; $i -lt $payload.CombinationStatements.Count; $i++) {
-                    $st = $payload.CombinationStatements[$i]
+                if ($statementItems.Count -lt 4) { $statementItems = @() }
+                for ($i = 0; $i -lt $statementItems.Count; $i++) {
+                    $st = $statementItems[$i]
                     $marker = [string]$st.Marker
                     $contains = $combo.Contains($marker)
                     $isCorrect = if ($isInverted) { -not $contains } else { $contains }
@@ -677,9 +788,9 @@ foreach ($yearItem in $targetYears) {
                 limbs = $limbs
                 questionUrl = $q.Url
                 correctOption = $payload.AnswerNumber
-                answerType = $payload.AnswerType
+                answerType = if ($payload.AnswerType -eq 'combo_ox' -or $useComboOx) { 'combo_ox' } else { $payload.AnswerType }
             }
-            $yearQuestions += (Convert-ChoiceComboQuestionToComboOx $questionObject)
+            $yearQuestions += $questionObject
         } catch {
             Write-Warning "Skip Q$($q.Number): $($_.Exception.Message)"
         }

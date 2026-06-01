@@ -8,37 +8,37 @@
         "limbs":  [
                       {
                           "id":  "H30-57-l0",
-                          "text":  "ア・イ",
+                          "text":  "携帯電話番号",
                           "correct":  false,
                           "explanation":  ""
                       },
                       {
                           "id":  "H30-57-l1",
-                          "text":  "ア・ウ",
-                          "correct":  false,
-                          "explanation":  ""
-                      },
-                      {
-                          "id":  "H30-57-l2",
-                          "text":  "イ・オ",
+                          "text":  "個人番号（マイナンバー）",
                           "correct":  true,
                           "explanation":  ""
                       },
                       {
+                          "id":  "H30-57-l2",
+                          "text":  "メールアドレス",
+                          "correct":  false,
+                          "explanation":  ""
+                      },
+                      {
                           "id":  "H30-57-l3",
-                          "text":  "ウ・エ",
+                          "text":  "クレジットカード番号",
                           "correct":  false,
                           "explanation":  ""
                       },
                       {
                           "id":  "H30-57-l4",
-                          "text":  "エ・オ",
-                          "correct":  false,
+                          "text":  "指紋データ",
+                          "correct":  true,
                           "explanation":  ""
                       }
                   ],
         "questionUrl":  "https://gyosyo.info/%e5%b9%b3%e6%88%9030%e5%b9%b4%e3%83%bb2018%ef%bd%9c%e5%95%8f57%ef%bd%9c%e4%b8%80%e8%88%ac%e7%9f%a5%e8%ad%98%e3%83%bb%e5%80%8b%e4%ba%ba%e6%83%85%e5%a0%b1%e4%bf%9d%e8%ad%b7/",
         "correctOption":  3,
-        "answerType":  "choice"
+        "answerType":  "combo_ox"
     }
 ]
