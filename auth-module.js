@@ -4,7 +4,6 @@
    ========================================================= */
 
 (function () {
-  let localAdminAuthenticated = false;
   let authUnavailable = false;
 
   function byId(id) {
@@ -132,13 +131,6 @@
       .includes(normalized);
   }
 
-  function isConfiguredAdminLoginUsername(email) {
-    const normalized = String(email || '').trim().toLowerCase();
-    if (!normalized) return false;
-    const username = String(window.APP_CONFIG?.adminLogin?.username || '').trim().toLowerCase();
-    return !!username && normalized === username;
-  }
-
   function showAppAsGuest() {
     const app = byId('app');
     const overlay = byId('login-overlay');
@@ -174,7 +166,6 @@
 
   function applySignedOut() {
     window.currentUser = null;
-    localAdminAuthenticated = false;
 
     if (typeof showLoginOverlay === 'function') {
       showLoginOverlay();
@@ -234,12 +225,6 @@
       let message = toAuthErrorMessage(e, 'ログインに失敗しました。');
       if (code === 'auth/user-not-found' && isConfiguredAdminEmail(email)) {
         message += ' adminEmails への登録は管理者判定用です。ログインには Firebase Authentication のユーザー作成が必要です。';
-      }
-      if (
-        ['auth/wrong-password', 'auth/invalid-password', 'auth/invalid-credential', 'auth/invalid-login-credentials'].includes(code) &&
-        isConfiguredAdminLoginUsername(email)
-      ) {
-        message += ' このIDは管理者オーバーレイ用です。ヘッダーの「管理者ページ」から管理者ログインを実行してください。';
       }
       setError('login-error', message);
     }
@@ -370,53 +355,6 @@
     }
   }
 
-  function openAdminLoginOverlay() {
-    const overlay = byId('admin-login-overlay');
-    const err = byId('admin-login-error');
-    const user = byId('admin-login-username');
-    const pw = byId('admin-login-password');
-
-    if (err) err.classList.add('hidden');
-    if (user) user.value = '';
-    if (pw) pw.value = '';
-    if (overlay) overlay.classList.remove('hidden');
-  }
-
-  function closeAdminLoginOverlay() {
-    const overlay = byId('admin-login-overlay');
-    if (overlay) overlay.classList.add('hidden');
-  }
-
-  function getAdminCredentials() {
-    const cfg = window.APP_CONFIG?.adminLogin || {};
-    return {
-      username: String(cfg.username || 'ikeda.job08@gmail.com').trim(),
-      password: String(cfg.password || 'admin1234')
-    };
-  }
-
-  function doAdminLogin() {
-    const creds = getAdminCredentials();
-    const username = (byId('admin-login-username')?.value || '').trim();
-    const password = byId('admin-login-password')?.value || '';
-    const err = byId('admin-login-error');
-
-    if (username === creds.username && password === creds.password) {
-      localAdminAuthenticated = true;
-      if (err) err.classList.add('hidden');
-      closeAdminLoginOverlay();
-      if (typeof showPage === 'function') {
-        showPage('admin');
-      }
-      return;
-    }
-
-    if (err) {
-      err.textContent = '管理者IDまたはパスワードが正しくありません。';
-      err.classList.remove('hidden');
-    }
-  }
-
   function bindEvents() {
     byId('btn-login')?.addEventListener('click', doEmailLogin);
     byId('btn-register')?.addEventListener('click', doRegister);
@@ -438,15 +376,7 @@
 
     byId('btn-logout')?.addEventListener('click', doLogout);
     byId('btn-admin-logout')?.addEventListener('click', () => {
-      localAdminAuthenticated = false;
       doLogout();
-    });
-
-    byId('btn-admin-login-cancel')?.addEventListener('click', closeAdminLoginOverlay);
-    byId('btn-admin-login')?.addEventListener('click', doAdminLogin);
-
-    byId('admin-login-overlay')?.addEventListener('click', (e) => {
-      if (e.target === byId('admin-login-overlay')) closeAdminLoginOverlay();
     });
 
     const googleContainer = byId('google-login-btn');
@@ -492,11 +422,6 @@
   }
 
   window.switchAuthForm = switchAuthForm;
-  window.openAdminLoginOverlay = openAdminLoginOverlay;
-  window.closeAdminLoginOverlay = closeAdminLoginOverlay;
-  window.isLocalAdminAuthenticated = function () {
-    return !!localAdminAuthenticated;
-  };
 
   document.addEventListener('DOMContentLoaded', function () {
     bindEvents();

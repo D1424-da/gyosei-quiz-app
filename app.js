@@ -469,10 +469,6 @@ function getAuthUid() {
 }
 
 function isAdminUser(user = getActiveUser()) {
-  if (typeof window.isLocalAdminAuthenticated === 'function' && window.isLocalAdminAuthenticated()) {
-    return true;
-  }
-
   const email = String(user?.email || '').trim().toLowerCase();
   if (!email) return false;
   const configured = Array.isArray(window.APP_CONFIG?.adminEmails) ? window.APP_CONFIG.adminEmails : [];
@@ -2158,10 +2154,10 @@ function updateMembersOnlyPanels() {
   const loggedIn = !!(getAuthUid() || window.currentUser?.uid);
   const canManage = typeof isAdminUser === 'function' ? isAdminUser() : false;
 
-  // 管理者ログイン導線は常に見せる（未認証時はクリックで管理者ログインオーバーレイを表示）
+  // 管理者導線は管理者ユーザーのみに表示
   const navAdminBtn = document.getElementById('nav-admin-btn');
   const navManageBtn = document.getElementById('nav-manage-btn');
-  if (navAdminBtn) navAdminBtn.classList.remove('hidden');
+  if (navAdminBtn) navAdminBtn.classList.toggle('hidden', !canManage);
   if (navManageBtn) navManageBtn.classList.toggle('hidden', !canManage);
 
   const studyCalendarSection = document.getElementById('study-calendar-section');
@@ -2197,19 +2193,13 @@ function openAuthOverlay(form = 'register') {
 // ── ページ切り替え ────────────────────────────────────────────
 async function showPage(name) {
   if (name === 'admin' && !isAdminUser()) {
-    if (typeof openAdminLoginOverlay === 'function') {
-      openAdminLoginOverlay();
-      return;
-    }
+    openAuthOverlay('login');
     alert('管理者ページは管理者のみ利用できます。');
     return;
   }
 
   if (name === 'manage' && !isAdminUser()) {
-    if (typeof openAdminLoginOverlay === 'function') {
-      openAdminLoginOverlay();
-      return;
-    }
+    openAuthOverlay('login');
     alert('問題管理ページは管理者のみ利用できます。');
     return;
   }

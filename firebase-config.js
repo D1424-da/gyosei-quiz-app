@@ -30,10 +30,6 @@
 	window.APP_CONFIG = {
 		adminEmails: [
 			"d.i.a.0101@gmail.com"
-		],
-		adminLogin: {
-			username: "ikeda.job08@gmail.com",
-			password: "admin1234"
-		}
+		]
 	};
 })();
