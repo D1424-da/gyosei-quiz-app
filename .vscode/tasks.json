@@ -39,6 +39,126 @@
 				".\\offline_rebuild_output.ps1"
 			],
 			"problemMatcher": []
+		},
+		{
+			"label": "debug-h30-53",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\debug_h30_53.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "convert-choice-to-combo-ox",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\convert_choice_combo_to_ox.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "fix-h30-53-combo-ox",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\fix_h30_53_to_combo_ox.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "fix-h30-53-combo-ox-2",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\fix_h30_53_to_combo_ox.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "offline-merge-after-h30-fix",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-OfflineMergeOnly"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "fix-h30-53-combo-ox-3",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\fix_h30_53_to_combo_ox.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "offline-merge-after-h30-fix-2",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-OfflineMergeOnly"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "fix-h30-53-combo-ox-4",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\fix_h30_53_to_combo_ox.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "offline-merge-after-h30-fix-3",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-OfflineMergeOnly"
+			],
+			"problemMatcher": []
 		}
 	]
 }

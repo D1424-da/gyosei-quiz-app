@@ -187,6 +187,13 @@ function Parse-KataStatements {
     return $items
 }
 
+function Is-ComboOptionText {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+    $t = Normalize-Digits $Text
+    return [regex]::IsMatch($t, '^\s*[（\(]?\s*[アイウエオカキクケコ](?:\s*[・、,\s　]\s*[アイウエオカキクケコ])+\s*[）\)]?\s*$')
+}
+
 function Merge-LocalOutputFiles {
     param([string]$TargetOutDir)
 
@@ -452,6 +459,13 @@ function Extract-QuestionPayload {
 
     $answerCombo = Extract-KataComboFromText ($answerRawForCombo + " " + ($acceptedAnswerTexts -join " "))
 
+    if ([string]::IsNullOrWhiteSpace($answerCombo) -and $answerNumber -ge 1 -and $answerNumber -le $optionTexts.Count) {
+        $answerComboFromOption = Normalize-KataCombo $optionTexts[$answerNumber - 1]
+        if (-not [string]::IsNullOrWhiteSpace($answerComboFromOption)) {
+            $answerCombo = $answerComboFromOption
+        }
+    }
+
     if ($answerNumber -eq 0 -and $comboChoiceMap.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo)) {
         $orderedKeys = @($comboChoiceMap.Keys | Sort-Object)
         foreach ($k in $orderedKeys) {
@@ -464,8 +478,11 @@ function Extract-QuestionPayload {
 
     $answerType = 'choice'
     $comboOxFallback = $false
+    $comboOptionCount = @($optionTexts | Where-Object { Is-ComboOptionText $_ }).Count
+    $canUseComboOx = ($kataStatements.Count -ge 3 -and -not [string]::IsNullOrWhiteSpace($answerCombo) -and ($comboOptionCount -ge 2 -or $optionTexts.Count -eq 0))
+
     if ($optionTexts.Count -eq 0) {
-        if ($kataStatements.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo)) {
+        if ($canUseComboOx) {
             $comboOxFallback = $true
             $answerType = 'combo_ox'
         } elseif ([string]::IsNullOrWhiteSpace($answerText)) {
@@ -480,6 +497,8 @@ function Extract-QuestionPayload {
         } else {
             throw "invalid answer number ($answerNumber): $QuestionUrl"
         }
+    } elseif ($canUseComboOx) {
+        $answerType = 'combo_ox'
     }
 
     $titleNorm = Normalize-Digits $title
