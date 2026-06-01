@@ -621,6 +621,38 @@ function mergeRecordsNoLoss(localMap, remoteMap) {
   return merged;
 }
 
+const FIRESTORE_DOC_SOFT_LIMIT_BYTES = 900 * 1024;
+
+function estimateUtf8Bytes(value) {
+  try {
+    const text = JSON.stringify(value);
+    if (typeof TextEncoder !== 'undefined') {
+      return new TextEncoder().encode(text).length;
+    }
+    if (typeof Blob !== 'undefined') {
+      return new Blob([text]).size;
+    }
+    return text.length;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
+}
+
+function canSyncQuestionsToCloud(questionList = questions) {
+  if (!Array.isArray(questionList) || questionList.length === 0) return false;
+  const payload = {
+    uid: getAuthUid() || '',
+    questions: questionList,
+    updatedAtMs: Date.now()
+  };
+  const bytes = estimateUtf8Bytes(payload);
+  if (bytes > FIRESTORE_DOC_SOFT_LIMIT_BYTES) {
+    console.warn(`question_sets 同期をスキップ: payload=${bytes} bytes (limit=${FIRESTORE_DOC_SOFT_LIMIT_BYTES})`);
+    return false;
+  }
+  return true;
+}
+
 async function pullQuestionsFromCloudIfNeeded() {
   const uid = getAuthUid();
   if (!uid || cloudPullInFlight) return;
@@ -636,7 +668,7 @@ async function pullQuestionsFromCloudIfNeeded() {
 
     if (!snap.exists) {
       // First login on this account: seed cloud with current local questions if any.
-      if (Array.isArray(questions) && questions.length > 0) {
+      if (canSyncQuestionsToCloud(questions)) {
         const now = Date.now();
         await ref.set({
           uid,
@@ -669,20 +701,22 @@ async function pullQuestionsFromCloudIfNeeded() {
       remoteQuestionCount < Math.floor(localQuestionCount * 0.6);
 
     if (suspiciousDownsync) {
-      const now = Date.now();
-      await ref.set({
-        uid,
-        questions,
-        updatedAtMs: now,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      if (canSyncQuestionsToCloud(questions)) {
+        const now = Date.now();
+        await ref.set({
+          uid,
+          questions,
+          updatedAtMs: now,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        markSyncSuccess('questions', now);
+      }
       saveQuestionsMeta({
         ...meta,
         lastCloudPullAt: Date.now(),
         lastCloudHealAt: Date.now()
       });
       cloudQuestionsLoadedUid = uid;
-      markSyncSuccess('questions', now);
       return;
     }
 
@@ -714,6 +748,7 @@ async function pushQuestionsToCloud() {
   const uid = getAuthUid();
   if (!uid) return;
   if (!(window.firebase && firebase.firestore)) return;
+  if (!canSyncQuestionsToCloud(questions)) return;
   try {
     const now = Date.now();
     await firebase.firestore().collection('question_sets').doc(uid).set({
