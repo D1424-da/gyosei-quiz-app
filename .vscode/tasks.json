@@ -199,6 +199,219 @@
 				".\\validate_questions_json.ps1"
 			],
 			"problemMatcher": []
+		},
+		{
+			"label": "validate gyosyo scraper combo",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 2",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 3",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 4",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 5",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 6",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 7",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 8",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 9",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "debug kata statement regex",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$q = (Get-Content .\\output\\gyosyo_h30_questions.json -Raw | ConvertFrom-Json)[0].questionText; $lines = $q -split '\\r?\\n'; $pat1 = '^\\s*([アイウエオカキクケコ])[\\s　\\.．、,:：-]+(.+)$'; $pat2 = '(?ms)(?:^|\\n)\\s*([アイウエオカキクケコ])[\\s　\\.．、,:：\\-]+\\s*(.+?)(?=(?:\\n\\s*[アイウエオカキクケコ][\\s　\\.．、,:：\\-]+)|\\z)'; $hits1 = @(); foreach($l in $lines){ if($l -match $pat1){ $hits1 += $Matches[1] + ':' + $Matches[2] } }; $hits2 = [regex]::Matches($q,$pat2) | ForEach-Object { $_.Groups[1].Value + ':' + $_.Groups[2].Value }; 'LINES=' + $lines.Count; 'HITS1=' + $hits1.Count; $hits1; 'HITS2=' + @($hits2).Count; $hits2"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "validate gyosyo scraper combo 10",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-Year",
+				"h30",
+				"-StartQuestion",
+				"57",
+				"-EndQuestion",
+				"57"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

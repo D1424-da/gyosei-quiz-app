@@ -176,14 +176,105 @@ function Parse-KataStatements {
     $items = @()
     foreach ($line in $Paragraphs) {
         if ([string]::IsNullOrWhiteSpace($line)) { continue }
-        $m = [regex]::Match($line, '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$')
-        if (-not $m.Success) { continue }
+        foreach ($part in ($line -split "`r?`n")) {
+            if ([string]::IsNullOrWhiteSpace($part)) { continue }
+            $m = [regex]::Match($part, '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$')
+            if (-not $m.Success) { continue }
+            $marker = $m.Groups[1].Value
+            $text = $m.Groups[2].Value.Trim()
+            if ([string]::IsNullOrWhiteSpace($text)) { continue }
+            $items += [PSCustomObject]@{ Marker = $marker; Text = $text }
+        }
+    }
+    return $items
+}
+
+function Extract-KataStatementsFromText {
+    param([string]$Text)
+
+    $items = @()
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $items }
+
+    $patterns = @(
+        '(?ms)(?:^|\n)\s*([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:\n\s*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)',
+        '(?ms)([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:[\s　]*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)'
+    )
+
+    $regexHits = @()
+    foreach ($pattern in $patterns) {
+        $regexHits = [regex]::Matches($Text, $pattern)
+        if ($regexHits.Count -gt 0) { break }
+    }
+    foreach ($m in $regexHits) {
         $marker = $m.Groups[1].Value
         $text = $m.Groups[2].Value.Trim()
         if ([string]::IsNullOrWhiteSpace($text)) { continue }
         $items += [PSCustomObject]@{ Marker = $marker; Text = $text }
     }
+
     return $items
+}
+
+function Convert-ChoiceComboQuestionToComboOx {
+    param([object]$Question)
+
+    if ($null -eq $Question) { return $Question }
+    if ($Question.answerType -ne 'choice') { return $Question }
+    if (-not [string]::IsNullOrWhiteSpace($Question.questionText)) {
+        $selectedIndex = [int]$Question.correctOption
+        if ($selectedIndex -lt 1 -or $selectedIndex -gt @($Question.limbs).Count) { return $Question }
+
+        $selectedText = [string]$Question.limbs[$selectedIndex - 1].text
+        if (-not (Test-ComboOptionText $selectedText)) { return $Question }
+
+        $statements = Extract-KataStatementsFromText $Question.questionText
+        if ($statements.Count -lt 4) {
+            $statements = Parse-KataStatements -Paragraphs @($Question.questionText -split '\r?\n')
+        }
+        if ($statements.Count -lt 4) { return $Question }
+
+        $combo = Normalize-KataCombo $selectedText
+        if ([string]::IsNullOrWhiteSpace($combo)) { return $Question }
+
+        $newLimbs = @()
+        $i = 0
+        foreach ($st in $statements) {
+            $marker = [string]$st.Marker
+            if ([string]::IsNullOrWhiteSpace($marker)) { continue }
+            $isCorrect = $combo.Contains($marker)
+            $newLimbs += [PSCustomObject]@{
+                id = "{0}-l{1}" -f $Question.id, $i
+                text = [string]$st.Text
+                correct = [bool]$isCorrect
+                explanation = $Question.limbs | ForEach-Object { $_.explanation } | Select-Object -First 1
+            }
+            $i++
+        }
+
+        if ($newLimbs.Count -lt 4) { return $Question }
+
+        return [PSCustomObject]@{
+            id = $Question.id
+            subject = $Question.subject
+            category = $Question.category
+            source = $Question.source
+            questionText = $Question.questionText
+            limbs = $newLimbs
+            questionUrl = $Question.questionUrl
+            correctOption = 0
+            answerType = 'combo_ox'
+        }
+    }
+
+    return $Question
+}
+
+function Test-ComboOptionText {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
+    $compact = (Normalize-KataCombo $Text)
+    if ([string]::IsNullOrWhiteSpace($compact)) { return $false }
+    return ($compact -match '^[アイウエオカキクケコ]{2,5}$')
 }
 
 
@@ -316,6 +407,13 @@ function Extract-QuestionPayload {
     }
     $questionText = ($questionParagraphs -join "`n").Trim()
 
+    if ($kataStatements.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($questionText)) {
+        $kataStatements = Parse-KataStatements -Paragraphs @($questionText -split '\r?\n')
+        if ($kataStatements.Count -eq 0) {
+            $kataStatements = Extract-KataStatementsFromText $questionText
+        }
+    }
+
     $comboChoiceMap = @{}
     foreach ($line in $questionParagraphs) {
         $map = Parse-ChoiceComboMap -Line $line
@@ -412,13 +510,28 @@ function Extract-QuestionPayload {
         }
     }
 
+    if ([string]::IsNullOrWhiteSpace($answerCombo) -and $answerNumber -gt 0 -and $answerNumber -le $optionTexts.Count -and (Test-ComboOptionText $optionTexts[$answerNumber - 1])) {
+        $answerCombo = Normalize-KataCombo $optionTexts[$answerNumber - 1]
+    }
+
+    $comboOptionList = $false
+    if ($optionTexts.Count -gt 0) {
+        $comboOptionList = $true
+        foreach ($opt in $optionTexts) {
+            if (-not (Test-ComboOptionText $opt)) {
+                $comboOptionList = $false
+                break
+            }
+        }
+    }
+
     $answerType = 'choice'
     $comboOxFallback = $false
-    if ($optionTexts.Count -eq 0) {
-        if ($kataStatements.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo)) {
-            $comboOxFallback = $true
-            $answerType = 'combo_ox'
-        } elseif ([string]::IsNullOrWhiteSpace($answerText)) {
+    if ($kataStatements.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo) -and ($optionTexts.Count -eq 0 -or $comboOptionList)) {
+        $comboOxFallback = $true
+        $answerType = 'combo_ox'
+    } elseif ($optionTexts.Count -eq 0) {
+        if ([string]::IsNullOrWhiteSpace($answerText)) {
             throw "no options found: $QuestionUrl"
         } else {
             $answerType = 'text'
@@ -555,7 +668,7 @@ foreach ($yearItem in $targetYears) {
                 }
             }
 
-            $yearQuestions += [PSCustomObject]@{
+            $questionObject = [PSCustomObject]@{
                 id = $qid
                 subject = "行政書士"
                 category = $payload.Category
@@ -566,6 +679,7 @@ foreach ($yearItem in $targetYears) {
                 correctOption = $payload.AnswerNumber
                 answerType = $payload.AnswerType
             }
+            $yearQuestions += (Convert-ChoiceComboQuestionToComboOx $questionObject)
         } catch {
             Write-Warning "Skip Q$($q.Number): $($_.Exception.Message)"
         }
