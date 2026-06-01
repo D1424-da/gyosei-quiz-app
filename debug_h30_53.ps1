@@ -1,9 +1,0 @@
-$q = Get-Content -Raw -Encoding UTF8 .\output\gyosyo_h30_questions.json | ConvertFrom-Json | Where-Object { $_.id -eq 'H30-53' }
-Write-Host ("answerType=" + [string]$q.answerType)
-Write-Host ("limbType=" + $q.limbs.GetType().FullName)
-Write-Host ("limbCount=" + [string]$q.limbs.Count)
-$lines = @([string]$q.questionText -split "`r?`n")
-$hit = @($lines | Where-Object { $_ -match '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$' })
-Write-Host ("statementHits=" + [string]$hit.Count)
-$correct = @($q.limbs | Where-Object { $_.correct -eq $true })[0]
-Write-Host ("correctLimb=" + [string]$correct.text)

@@ -4,8 +4,7 @@ param(
     [string]$Year = "",
     [int]$StartQuestion = 1,
     [int]$EndQuestion = 60,
-    [switch]$All,
-    [switch]$OfflineMergeOnly
+    [switch]$All
 )
 
 $ErrorActionPreference = "Stop"
@@ -185,62 +184,6 @@ function Parse-KataStatements {
         $items += [PSCustomObject]@{ Marker = $marker; Text = $text }
     }
     return $items
-}
-
-function Is-ComboOptionText {
-    param([string]$Text)
-    if ([string]::IsNullOrWhiteSpace($Text)) { return $false }
-    $t = Normalize-Digits $Text
-    return [regex]::IsMatch($t, '^\s*[（\(]?\s*[アイウエオカキクケコ](?:\s*[・、,\s　]\s*[アイウエオカキクケコ])+\s*[）\)]?\s*$')
-}
-
-function Merge-LocalOutputFiles {
-    param([string]$TargetOutDir)
-
-    if (-not (Test-Path $TargetOutDir)) {
-        throw "output directory not found: $TargetOutDir"
-    }
-
-    $resolvedOutDir = (Resolve-Path $TargetOutDir).Path
-    $yearFiles = @(Get-ChildItem -LiteralPath $resolvedOutDir -Filter 'gyosyo_*_questions.json' -File |
-        Where-Object { $_.Name -ne 'gyosyo_all_questions.json' } |
-        Sort-Object Name)
-
-    if ($yearFiles.Count -eq 0) {
-        throw "no per-year files found under: $resolvedOutDir"
-    }
-
-    $jsonBodies = @()
-    foreach ($f in $yearFiles) {
-        $raw = [string](Get-Content -Raw -Encoding UTF8 -LiteralPath $f.FullName)
-        $trimmed = $raw.Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed)) { continue }
-
-        if (-not ($trimmed.StartsWith('[') -and $trimmed.EndsWith(']'))) {
-            throw "invalid JSON array file: $($f.FullName)"
-        }
-
-        $inner = $trimmed.Substring(1, $trimmed.Length - 2).Trim()
-        if (-not [string]::IsNullOrWhiteSpace($inner)) {
-            $jsonBodies += $inner
-        }
-    }
-
-    if ($jsonBodies.Count -eq 0) {
-        throw "no questions found in local per-year files"
-    }
-
-    $json = "[" + [Environment]::NewLine + ($jsonBodies -join ("," + [Environment]::NewLine)) + [Environment]::NewLine + "]"
-    $mergedFile = Join-Path $resolvedOutDir 'gyosyo_all_questions.json'
-    $appFile = Join-Path $resolvedOutDir 'all_questions.json'
-
-    [System.IO.File]::WriteAllText($mergedFile, $json, [System.Text.Encoding]::UTF8)
-    [System.IO.File]::WriteAllText($appFile, $json, [System.Text.Encoding]::UTF8)
-
-    Write-Host "[offline] merged from local files: $($yearFiles.Count)"
-    Write-Host "[offline] merged items from non-empty files: $($jsonBodies.Count)"
-    Write-Host "[offline] wrote: $mergedFile"
-    Write-Host "[offline] wrote: $appFile"
 }
 
 
@@ -459,13 +402,6 @@ function Extract-QuestionPayload {
 
     $answerCombo = Extract-KataComboFromText ($answerRawForCombo + " " + ($acceptedAnswerTexts -join " "))
 
-    if ([string]::IsNullOrWhiteSpace($answerCombo) -and $answerNumber -ge 1 -and $answerNumber -le $optionTexts.Count) {
-        $answerComboFromOption = Normalize-KataCombo $optionTexts[$answerNumber - 1]
-        if (-not [string]::IsNullOrWhiteSpace($answerComboFromOption)) {
-            $answerCombo = $answerComboFromOption
-        }
-    }
-
     if ($answerNumber -eq 0 -and $comboChoiceMap.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo)) {
         $orderedKeys = @($comboChoiceMap.Keys | Sort-Object)
         foreach ($k in $orderedKeys) {
@@ -478,11 +414,8 @@ function Extract-QuestionPayload {
 
     $answerType = 'choice'
     $comboOxFallback = $false
-    $comboOptionCount = @($optionTexts | Where-Object { Is-ComboOptionText $_ }).Count
-    $canUseComboOx = ($kataStatements.Count -ge 3 -and -not [string]::IsNullOrWhiteSpace($answerCombo) -and ($comboOptionCount -ge 2 -or $optionTexts.Count -eq 0))
-
     if ($optionTexts.Count -eq 0) {
-        if ($canUseComboOx) {
+        if ($kataStatements.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo)) {
             $comboOxFallback = $true
             $answerType = 'combo_ox'
         } elseif ([string]::IsNullOrWhiteSpace($answerText)) {
@@ -497,8 +430,6 @@ function Extract-QuestionPayload {
         } else {
             throw "invalid answer number ($answerNumber): $QuestionUrl"
         }
-    } elseif ($canUseComboOx) {
-        $answerType = 'combo_ox'
     }
 
     $titleNorm = Normalize-Digits $title
@@ -536,11 +467,6 @@ function Extract-QuestionPayload {
 
 if (-not (Test-Path $OutDir)) {
     New-Item -ItemType Directory -Path $OutDir | Out-Null
-}
-
-if ($OfflineMergeOnly) {
-    Merge-LocalOutputFiles -TargetOutDir $OutDir
-    return
 }
 
 Write-Host "[1/4] Fetch year index"
