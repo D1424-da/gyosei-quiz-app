@@ -1,37 +1,95 @@
-﻿/* =========================================================
+﻿// ログイン・ログアウト時にカウントバー表示切替
+function setMasteryCountBarVisible(visible) {
+  const bar = document.getElementById('mastery-count-bar');
+  if (bar) bar.style.display = visible ? '' : 'none';
+}
+
+// --- 完璧・あいまい・まちがえたものカウント表示 ---
+function updateMasteryCounts() {
+  let perfect = 0, ambiguous = 0, wrong = 0;
+  if (Array.isArray(questions)) {
+    for (const q of questions) {
+      if (Array.isArray(q.limbs)) {
+        for (const limb of q.limbs) {
+          const rec = getRecord(limb.id);
+          if (rec.mastery === 'perfect') perfect++;
+          if (rec.mastery === 'ambiguous') ambiguous++;
+          if (rec.wrong > 0) wrong++;
+        }
+      }
+    }
+  }
+  const elPerfect = document.getElementById('count-perfect');
+  const elAmbiguous = document.getElementById('count-ambiguous');
+  const elWrong = document.getElementById('count-wrong');
+  if (elPerfect) elPerfect.textContent = `完璧: ${perfect}`;
+  if (elAmbiguous) elAmbiguous.textContent = `あいまい: ${ambiguous}`;
+  if (elWrong) elWrong.textContent = `まちがえたもの: ${wrong}`;
+}
+
+// 各種データロード後や成績変更時にカウントを更新
+(function setupMasteryCountAutoUpdate() {
+  document.addEventListener('DOMContentLoaded', function() {
+    // 初期状態: 非表示
+    setMasteryCountBarVisible(false);
+    updateMasteryCounts();
+    renderStudyGoalPanel();
+  });
+  // saveRecordsをラップ
+  const origSaveRecords = window.saveRecords || saveRecords;
+  window.saveRecords = function() {
+    const res = origSaveRecords.apply(this, arguments);
+    updateMasteryCounts();
+    renderStudyGoalPanel();
+    return res;
+  };
+  // 問題データが変わる可能性のある箇所にもフック
+  const origSetLimbMastery = window.setLimbMastery || setLimbMastery;
+  window.setLimbMastery = function() {
+    const res = origSetLimbMastery.apply(this, arguments);
+    updateMasteryCounts();
+    renderStudyGoalPanel();
+    return res;
+  };
+  const origAddRecord = window.addRecord || addRecord;
+  window.addRecord = function() {
+    const res = origAddRecord.apply(this, arguments);
+    updateMasteryCounts();
+    renderStudyGoalPanel();
+    return res;
+  };
+})();
+
+// ログイン・ログアウト時のUI切替にフック
+const origShowPage = window.showPage || showPage;
+window.showPage = function(name) {
+  const res = origShowPage.apply(this, arguments);
+  const loggedIn = !!(getAuthUid() || window.currentUser?.uid);
+  if (loggedIn && name === 'study') {
+    setMasteryCountBarVisible(true);
+  } else {
+    setMasteryCountBarVisible(false);
+  }
+  return res;
+};
+
+// ログアウト時にも明示的に非表示
+const origLogout = window.logout || logout;
+if (typeof origLogout === 'function') {
+  window.logout = function() {
+    setMasteryCountBarVisible(false);
+    return origLogout.apply(this, arguments);
+  };
+}
+/* =========================================================
    肢別問題集 - app.js
    ========================================================= */
 
 // ── ストレージキー ──────────────────────────────────────────
-
-// Firestore がオフライン・未作成・接続失敗のエラーは無音にする。
-function warnCloudError(label, e) {
-  if (isFirestoreConnectivityError(e)) return;
-  console.warn(label, e);
-}
-
-function isFirestoreConnectivityError(error) {
-  const code = String(error?.code || '').toLowerCase();
-  const msg = String(error?.message || error || '').toLowerCase();
-  const status = error?.status || error?.statusCode || 0;
-  if (code === 'unavailable' || code === 'deadline-exceeded' || code === 'not-found') return true;
-  // HTTP 404: Firestoreデータベース未作成 / HTTP 400: プロジェクト設定ミス
-  if (status === 404 || status === 400) return true;
-  return (
-    msg.includes('could not reach cloud firestore backend') ||
-    msg.includes('backend didn\'t respond within 10 seconds') ||
-    msg.includes('webchannelconnection') ||
-    msg.includes('client is offline') ||
-    msg.includes('status: 1') ||
-    msg.includes('404') ||
-    msg.includes('not found')
-  );
-}
-
  const KEY_QUESTIONS   = 'limb_questions';
 const KEY_RECORDS     = 'limb_records';    // パーユーザーキー: limb_records_<uid>
 const KEY_RECORDS_META = 'limb_records_meta'; // パーユーザーキー: limb_records_meta_<uid>
-const KEY_STUDY_GOAL  = 'limb_study_goal'; // パーユーザーキー: limb_study_goal_<uid>
+const KEY_STUDY_GOAL = 'limb_study_goal';
 const KEY_STUDY_TIME  = 'limb_study_time'; // パーユーザーキー: limb_study_time_<uid>
 const KEY_STUDY_CALENDAR = 'limb_study_calendar'; // パーユーザーキー: limb_study_calendar_<uid>
 const KEY_STUDY_SESSION = 'limb_study_session'; // パーユーザーキー: limb_study_session_<uid>
@@ -39,6 +97,9 @@ const KEY_USERS       = 'limb_users';
 const KEY_SESSION_USER = 'limb_session_user'; // sessionStorage
 const KEY_QUESTIONS_META = 'limb_questions_meta';
 const KEY_WEAK_LIST_PREF = 'limb_weak_list_pref';
+const SHARED_QUESTION_SET_DOC_ID = 'shared';
+const CLOUD_ONLY_QUESTIONS = true;
+const CLOUD_ONLY_USER_DATA = true;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // ── 状態 ────────────────────────────────────────────
@@ -66,12 +127,13 @@ let unsubscribeRecordsRealtime = null;
 let unsubscribeStudyStatsRealtime = null;
 let unsubscribeStudyRecordsRealtime = null;
 let realtimeSubscribedUid = null;
-let firestoreRealtimeDisabled = false;
 let calendarPendingSync = false;
 let cloudCalendarFlushInFlight = false;
 let sessionSnapshotPendingSync = false;
 let cloudSessionSnapshotFlushInFlight = false;
 let studySessionSnapshotCache = {};
+let studyTimeCacheByUid = {};
+let studyCalendarCacheByUid = {};
 
 
 // ── ユーティリティ ───────────────────────────────────────────
@@ -80,7 +142,27 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const useLocalStorage = true;
 const volatileStorage = new Map();
 
+function isCloudOnlyStorageKey(key) {
+  const k = String(key || '');
+  if (!k) return false;
+
+  if (CLOUD_ONLY_QUESTIONS) {
+    if (k === KEY_QUESTIONS || k === KEY_QUESTIONS_META) return true;
+  }
+
+  if (CLOUD_ONLY_USER_DATA) {
+    if (k === KEY_RECORDS || k.startsWith(`${KEY_RECORDS}_`)) return true;
+    if (k.startsWith(`${KEY_RECORDS_META}_`)) return true;
+    if (k === KEY_STUDY_TIME || k.startsWith(`${KEY_STUDY_TIME}_`)) return true;
+    if (k === KEY_STUDY_CALENDAR || k.startsWith(`${KEY_STUDY_CALENDAR}_`)) return true;
+    if (k === KEY_STUDY_SESSION || k.startsWith(`${KEY_STUDY_SESSION}_`)) return true;
+  }
+
+  return false;
+}
+
 function storageGetItem(key) {
+  if (isCloudOnlyStorageKey(key)) return null;
   if (!useLocalStorage) {
     return volatileStorage.has(key) ? volatileStorage.get(key) : null;
   }
@@ -92,6 +174,7 @@ function storageGetItem(key) {
 }
 
 function storageSetItem(key, value) {
+  if (isCloudOnlyStorageKey(key)) return;
   if (!useLocalStorage) {
     volatileStorage.set(key, String(value));
     return;
@@ -104,6 +187,7 @@ function storageSetItem(key, value) {
 }
 
 function storageRemoveItem(key) {
+  if (isCloudOnlyStorageKey(key)) return;
   if (!useLocalStorage) {
     volatileStorage.delete(key);
     return;
@@ -166,10 +250,6 @@ function getStudyTimeStorageKey(uid = getAuthUid()) {
   return uid ? `${KEY_STUDY_TIME}_${uid}` : KEY_STUDY_TIME;
 }
 
-function getStudyGoalStorageKey(uid = getAuthUid()) {
-  return uid ? `${KEY_STUDY_GOAL}_${uid}` : KEY_STUDY_GOAL;
-}
-
 function getStudyCalendarStorageKey(uid = getAuthUid()) {
   return uid ? `${KEY_STUDY_CALENDAR}_${uid}` : KEY_STUDY_CALENDAR;
 }
@@ -185,6 +265,14 @@ function normalizeStudyTimeData(data) {
 }
 
 function loadStudyTimeLocal(uid = getAuthUid()) {
+  if (CLOUD_ONLY_USER_DATA) {
+    const key = uid || '__guest__';
+    const cached = studyTimeCacheByUid[key];
+    if (cached) return normalizeStudyTimeData(cached);
+    return uid === getAuthUid()
+      ? normalizeStudyTimeData(studyTime)
+      : { totalMs: 0, pendingDeltaMs: 0 };
+  }
   const key = getStudyTimeStorageKey(uid);
   try {
     return normalizeStudyTimeData(JSON.parse(storageGetItem(key)) || {});
@@ -194,9 +282,13 @@ function loadStudyTimeLocal(uid = getAuthUid()) {
 }
 
 function saveStudyTimeLocal(data, uid = getAuthUid()) {
-  const key = getStudyTimeStorageKey(uid);
   const normalized = normalizeStudyTimeData(data || {});
-  storageSetItem(key, JSON.stringify(normalized));
+  const cacheKey = uid || '__guest__';
+  studyTimeCacheByUid[cacheKey] = normalized;
+  if (!CLOUD_ONLY_USER_DATA) {
+    const key = getStudyTimeStorageKey(uid);
+    storageSetItem(key, JSON.stringify(normalized));
+  }
   studyTime = normalized;
 }
 
@@ -204,26 +296,39 @@ function normalizeStudyCalendarData(data) {
   const src = (data && typeof data === 'object' && data.checkedDates && typeof data.checkedDates === 'object')
     ? data.checkedDates
     : {};
-  const countSrc = (data && typeof data === 'object' && data.dailyCounts && typeof data.dailyCounts === 'object')
-    ? data.dailyCounts
-    : {};
   const checkedDates = {};
-  const dailyCounts = {};
   for (const [dateKey, checked] of Object.entries(src)) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey)) && checked === true) {
       checkedDates[dateKey] = true;
     }
   }
+
+  const countSrc = (data && typeof data === 'object' && data.dailyCounts && typeof data.dailyCounts === 'object')
+    ? data.dailyCounts
+    : {};
+  const dailyCounts = {};
   for (const [dateKey, count] of Object.entries(countSrc)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateKey))) continue;
     const safeCount = Math.max(0, Math.floor(Number(count || 0)));
-    if (safeCount > 0) dailyCounts[dateKey] = safeCount;
+    if (safeCount > 0) {
+      dailyCounts[dateKey] = safeCount;
+      checkedDates[dateKey] = true;
+    }
   }
+
   const updatedAtMs = Math.max(0, Number(data?.updatedAtMs || 0));
   return { checkedDates, dailyCounts, updatedAtMs };
 }
 
 function loadStudyCalendarLocal(uid = getAuthUid()) {
+  if (CLOUD_ONLY_USER_DATA) {
+    const key = uid || '__guest__';
+    const cached = studyCalendarCacheByUid[key];
+    if (cached) return normalizeStudyCalendarData(cached);
+    return uid === getAuthUid()
+      ? normalizeStudyCalendarData(studyCalendar)
+      : { checkedDates: {}, dailyCounts: {}, updatedAtMs: 0 };
+  }
   const key = getStudyCalendarStorageKey(uid);
   try {
     return normalizeStudyCalendarData(JSON.parse(storageGetItem(key)) || {});
@@ -233,12 +338,16 @@ function loadStudyCalendarLocal(uid = getAuthUid()) {
 }
 
 function saveStudyCalendarLocal(data, uid = getAuthUid()) {
-  const key = getStudyCalendarStorageKey(uid);
   const normalized = normalizeStudyCalendarData({
     ...(data || {}),
     updatedAtMs: Number(data?.updatedAtMs || Date.now())
   });
-  storageSetItem(key, JSON.stringify(normalized));
+  const cacheKey = uid || '__guest__';
+  studyCalendarCacheByUid[cacheKey] = normalized;
+  if (!CLOUD_ONLY_USER_DATA) {
+    const key = getStudyCalendarStorageKey(uid);
+    storageSetItem(key, JSON.stringify(normalized));
+  }
   studyCalendar = normalized;
 }
 
@@ -246,22 +355,6 @@ function clearStudyCalendar(uid = getAuthUid()) {
   saveStudyCalendarLocal({ checkedDates: {}, dailyCounts: {}, updatedAtMs: Date.now() }, uid);
   calendarPendingSync = true;
   flushStudyCalendarToCloudIfNeeded();
-}
-
-function loadStudyGoal(uid = getAuthUid()) {
-  const raw = Number(storageGetItem(getStudyGoalStorageKey(uid)) || 30);
-  if (!Number.isFinite(raw)) return 30;
-  return Math.min(500, Math.max(1, Math.floor(raw)));
-}
-
-function saveStudyGoal(value, uid = getAuthUid()) {
-  const v = Math.min(500, Math.max(1, Math.floor(Number(value) || 30)));
-  storageSetItem(getStudyGoalStorageKey(uid), String(v));
-  return v;
-}
-
-function normalizeMasteryValue(value) {
-  return value === 'perfect' || value === 'ambiguous' ? value : '';
 }
 
 function getStudyFilters() {
@@ -272,22 +365,6 @@ function getStudyFilters() {
     yearTo: document.getElementById('filter-year-to')?.value || '',
     mode: document.getElementById('filter-mode')?.value || 'all'
   };
-}
-
-function normalizeCategoryLabel(category) {
-  const value = String(category || '')
-    .replace(/[：:]/g, '・')
-    .replace(/\s*・\s*/g, '・')
-    .trim();
-
-  const aliasMap = {
-    '行政事件訴訟法': '行政事件訴訟',
-    '行政不服審査法': '行政不服審査法',
-    '行政手続法': '行政手続',
-    '地方自治法': '地方自治'
-  };
-
-  return aliasMap[value] || value;
 }
 
 function setStudyFilters(filters = {}) {
@@ -301,8 +378,7 @@ function setStudyFilters(filters = {}) {
   if (categoryEl && subjectEl) {
     const categories = getCategories(subjectEl.value);
     categoryEl.innerHTML = '<option value="">すべて</option>' + categories.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-    const normalized = normalizeCategoryLabel(filters.category || '');
-    categoryEl.value = categories.includes(normalized) ? normalized : '';
+    categoryEl.value = categories.includes(filters.category || '') ? (filters.category || '') : '';
   }
   if (yearFromEl) yearFromEl.value = filters.yearFrom || '';
   if (yearToEl) yearToEl.value = filters.yearTo || '';
@@ -320,6 +396,10 @@ function readSavedStudySession(uid = getAuthUid()) {
   if (uid && studySessionSnapshotCache[uid]) {
     const cached = normalizeStudySessionSnapshot(studySessionSnapshotCache[uid]);
     if (cached) return cached;
+  }
+
+  if (CLOUD_ONLY_USER_DATA) {
+    return null;
   }
 
   const key = getStudySessionStorageKey(uid);
@@ -396,17 +476,22 @@ function saveStudySessionSnapshot() {
     savedAt: Date.now()
   };
   studySessionSnapshotCache[uid] = snapshot;
-  storageSetItem(key, JSON.stringify(snapshot));
+  if (!CLOUD_ONLY_USER_DATA) {
+    storageSetItem(key, JSON.stringify(snapshot));
+  }
   sessionSnapshotPendingSync = true;
   flushStudySessionSnapshotToCloudIfNeeded();
   updateResumeSessionButton();
+  updateMasteryCounts();
 }
 
 function clearStudySessionSnapshot() {
   const uid = getAuthUid();
   if (!uid) return;
   delete studySessionSnapshotCache[uid];
-  storageRemoveItem(getStudySessionStorageKey(uid));
+  if (!CLOUD_ONLY_USER_DATA) {
+    storageRemoveItem(getStudySessionStorageKey(uid));
+  }
   sessionSnapshotPendingSync = true;
   flushStudySessionSnapshotToCloudIfNeeded();
   updateResumeSessionButton();
@@ -626,11 +711,25 @@ function normalizeRecordMap(map) {
       wrong: Math.max(0, Number(stat?.wrong || 0)),
       wrongDateKeys: normalizeWrongDateKeys(stat?.wrongDateKeys),
       review: normalizeReviewState(stat?.review),
-      mastery: normalizeMasteryValue(stat?.mastery),
-      masteryUpdatedAtMs: Math.max(0, Number(stat?.masteryUpdatedAtMs || 0))
+      mastery: stat?.mastery === 'perfect' ? 'perfect' : stat?.mastery === 'ambiguous' ? 'ambiguous' : '',
+      masteryUpdatedAtMs: Math.max(0, Number(stat?.masteryUpdatedAtMs || 0)),
+      note: String(stat?.note || '').slice(0, 1000),
+      bookmarked: !!stat?.bookmarked
     };
   }
   return out;
+}
+
+function pickLatestMastery(left = {}, right = {}) {
+  const leftAt = Math.max(0, Number(left?.masteryUpdatedAtMs || 0));
+  const rightAt = Math.max(0, Number(right?.masteryUpdatedAtMs || 0));
+  if (rightAt > leftAt) return { mastery: right?.mastery || '', masteryUpdatedAtMs: rightAt };
+  if (leftAt > rightAt) return { mastery: left?.mastery || '', masteryUpdatedAtMs: leftAt };
+
+  const leftRank = left?.mastery === 'perfect' ? 2 : left?.mastery === 'ambiguous' ? 1 : 0;
+  const rightRank = right?.mastery === 'perfect' ? 2 : right?.mastery === 'ambiguous' ? 1 : 0;
+  if (rightRank > leftRank) return { mastery: right?.mastery || '', masteryUpdatedAtMs: rightAt };
+  return { mastery: left?.mastery || '', masteryUpdatedAtMs: leftAt };
 }
 
 function isRecordMapEmpty(map) {
@@ -646,9 +745,7 @@ function mergeRecordsNoLoss(localMap, remoteMap) {
     const left = normalizeReviewState(local[id]?.review);
     const right = normalizeReviewState(remote[id]?.review);
     const review = right.lastAnsweredAtMs > left.lastAnsweredAtMs ? right : left;
-    const localMasteryAt = Math.max(0, Number(local[id]?.masteryUpdatedAtMs || 0));
-    const remoteMasteryAt = Math.max(0, Number(remote[id]?.masteryUpdatedAtMs || 0));
-    const masteryFromRemote = remoteMasteryAt >= localMasteryAt;
+    const mastery = pickLatestMastery(local[id], remote[id]);
     merged[id] = {
       // カウンタは減らさない方針で統合し、空データ上書きによる履歴消失を防ぐ。
       correct: Math.max(0, Number(local[id]?.correct || 0), Number(remote[id]?.correct || 0)),
@@ -658,38 +755,32 @@ function mergeRecordsNoLoss(localMap, remoteMap) {
         ...(remote[id]?.wrongDateKeys || [])
       ]),
       review,
-      mastery: masteryFromRemote
-        ? normalizeMasteryValue(remote[id]?.mastery)
-        : normalizeMasteryValue(local[id]?.mastery),
-      masteryUpdatedAtMs: Math.max(localMasteryAt, remoteMasteryAt)
+      mastery: mastery.mastery,
+      masteryUpdatedAtMs: mastery.masteryUpdatedAtMs,
+      note: String(remote[id]?.note || local[id]?.note || '').slice(0, 1000),
+      bookmarked: !!(local[id]?.bookmarked || remote[id]?.bookmarked)
     };
   }
   return merged;
 }
 
-function setMasteryCountBarVisible(visible) {
-  const bar = document.getElementById('mastery-count-bar');
-  if (!bar) return;
-  bar.classList.toggle('hidden', !visible);
+function getStudyGoalStorageKey(uid = getAuthUid()) {
+  return uid ? `${KEY_STUDY_GOAL}_${uid}` : KEY_STUDY_GOAL;
 }
 
-function updateMasteryCounts() {
-  let perfect = 0;
-  let ambiguous = 0;
-  let wrong = 0;
-
-  for (const stat of Object.values(records || {})) {
-    if (normalizeMasteryValue(stat?.mastery) === 'perfect') perfect++;
-    if (normalizeMasteryValue(stat?.mastery) === 'ambiguous') ambiguous++;
-    if (Math.max(0, Number(stat?.wrong || 0)) > 0) wrong++;
+function loadStudyGoal(uid = getAuthUid()) {
+  try {
+    const v = Number(storageGetItem(getStudyGoalStorageKey(uid)) || 30);
+    return Math.min(500, Math.max(1, Math.floor(v || 30)));
+  } catch {
+    return 30;
   }
+}
 
-  const elPerfect = document.getElementById('count-perfect');
-  const elAmbiguous = document.getElementById('count-ambiguous');
-  const elWrong = document.getElementById('count-wrong');
-  if (elPerfect) elPerfect.textContent = `完璧: ${perfect}`;
-  if (elAmbiguous) elAmbiguous.textContent = `あいまい: ${ambiguous}`;
-  if (elWrong) elWrong.textContent = `まちがえたもの: ${wrong}`;
+function saveStudyGoal(value, uid = getAuthUid()) {
+  const v = Math.min(500, Math.max(1, Math.floor(Number(value) || 30)));
+  storageSetItem(getStudyGoalStorageKey(uid), String(v));
+  return v;
 }
 
 function calcStudyStreak() {
@@ -700,8 +791,11 @@ function calcStudyStreak() {
     const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() - i);
     const key = toDateKey(d);
     const count = Math.max(0, Number(daily[key] || 0));
-    if (count > 0) streak++;
-    else break;
+    if (count > 0) {
+      streak++;
+    } else {
+      break;
+    }
   }
   return streak;
 }
@@ -713,10 +807,6 @@ function renderStudyGoalPanel() {
   const goalInput = document.getElementById('study-goal-value');
   if (!panel || !progressEl || !streakEl || !goalInput) return;
 
-  const loggedIn = !!getAuthUid();
-  panel.classList.toggle('hidden', !loggedIn);
-  if (!loggedIn) return;
-
   const goal = loadStudyGoal();
   goalInput.value = String(goal);
   const todayKey = toDateKey();
@@ -725,77 +815,71 @@ function renderStudyGoalPanel() {
   streakEl.textContent = `連続学習: ${calcStudyStreak()}日`;
 }
 
-function getRecentDailyStudyCounts(days = 14) {
-  const limit = Math.max(1, Math.floor(Number(days || 14)));
-  const out = [];
-  const now = new Date();
-  for (let i = 0; i < limit; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-    const key = toDateKey(d);
-    const count = Math.max(0, Math.floor(Number(studyCalendar.dailyCounts?.[key] || 0)));
-    out.push({ key, dateLabel: `${d.getMonth() + 1}/${d.getDate()}`, count });
-  }
-  return out;
-}
-
-const FIRESTORE_DOC_SOFT_LIMIT_BYTES = 900 * 1024;
-
-function estimateUtf8Bytes(value) {
-  try {
-    const text = JSON.stringify(value);
-    if (typeof TextEncoder !== 'undefined') {
-      return new TextEncoder().encode(text).length;
-    }
-    if (typeof Blob !== 'undefined') {
-      return new Blob([text]).size;
-    }
-    return text.length;
-  } catch {
-    return Number.MAX_SAFE_INTEGER;
-  }
-}
-
-function canSyncQuestionsToCloud(questionList = questions) {
-  if (!Array.isArray(questionList) || questionList.length === 0) return false;
-  const payload = {
-    uid: getAuthUid() || '',
-    questions: questionList,
-    updatedAtMs: Date.now()
-  };
-  const bytes = estimateUtf8Bytes(payload);
-  if (bytes > FIRESTORE_DOC_SOFT_LIMIT_BYTES) {
-    console.warn(`question_sets 同期をスキップ: payload=${bytes} bytes (limit=${FIRESTORE_DOC_SOFT_LIMIT_BYTES})`);
-    return false;
-  }
-  return true;
-}
-
-async function pullQuestionsFromCloudIfNeeded() {
+async function pullQuestionsFromCloudIfNeeded(force = false) {
   const uid = getAuthUid();
   if (!uid || cloudPullInFlight) return;
-  if (cloudQuestionsLoadedUid === uid) return;
+  if (!force && cloudQuestionsLoadedUid === uid) return;
   if (!(window.firebase && firebase.firestore)) return;
 
   cloudPullInFlight = true;
   try {
-    const ref = firebase.firestore().collection('question_sets').doc(uid);
-    const snap = await ref.get();
+    const db = firebase.firestore();
+    const sharedRef = db.collection('question_sets').doc(SHARED_QUESTION_SET_DOC_ID);
+    const legacyRef = db.collection('question_sets').doc(uid);
+    const snap = await sharedRef.get();
     const meta = getQuestionsMeta();
     const localEditedAt = Number(meta.localEditedAt || 0);
+    const canManage = isAdminUser();
 
     if (!snap.exists) {
-      // First login on this account: seed cloud with current local questions if any.
-      if (canSyncQuestionsToCloud(questions)) {
+      // 共有問題セットが未作成のときは、管理者のローカル/旧UIDデータから初期化する。
+      let seedQuestions = Array.isArray(questions) ? questions : [];
+      let seedUpdatedAt = Number(meta.localEditedAt || Date.now());
+
+      if (canManage) {
+        try {
+          const legacySnap = await legacyRef.get();
+          if (legacySnap.exists) {
+            const legacyData = legacySnap.data() || {};
+            const legacyQuestions = Array.isArray(legacyData.questions) ? legacyData.questions : [];
+            const legacyEditedAt = Number(legacyData.updatedAtMs || 0);
+            if (legacyQuestions.length > 0 && legacyEditedAt >= seedUpdatedAt) {
+              seedQuestions = legacyQuestions;
+              seedUpdatedAt = legacyEditedAt;
+            }
+          }
+        } catch (e) {
+          console.warn('旧UID問題データの取得に失敗:', e);
+        }
+      }
+
+      if (canManage && Array.isArray(seedQuestions) && seedQuestions.length > 0) {
         const now = Date.now();
-        await ref.set({
-          uid,
-          questions,
-          updatedAtMs: now,
+        await sharedRef.set({
+          questions: seedQuestions,
+          updatedAtMs: Math.max(now, seedUpdatedAt),
+          updatedByUid: uid,
+          updatedByEmail: String(getActiveUser()?.email || ''),
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
+
+        questions = seedQuestions;
+        saveQuestionsMeta({
+          ...meta,
+          localEditedAt: Math.max(now, seedUpdatedAt),
+          localDirty: false,
+          lastCloudPullAt: now,
+          lastCloudSeedAt: now
+        });
         markSyncSuccess('questions', now);
       }
-      cloudQuestionsLoadedUid = uid;
+
+      if (canManage) {
+        cloudQuestionsLoadedUid = uid;
+      } else {
+        // 管理者が共有セットを作成するまで、次回以降も再取得を試みる。
+        cloudQuestionsLoadedUid = null;
+      }
       return;
     }
 
@@ -806,78 +890,54 @@ async function pullQuestionsFromCloudIfNeeded() {
       cloudQuestionsLoadedUid = uid;
       return;
     }
-
-    const localQuestionCount = Array.isArray(questions) ? questions.length : 0;
-    const remoteQuestionCount = remoteQuestions.length;
-    const hasBundledBase = Number(meta.lastBundledSyncAt || 0) > 0 && !meta.localDirty;
-    // 同梱データを持つ端末で、クラウド側だけ極端に少ない件数なら誤上書きを防止する。
-    const suspiciousDownsync =
-      hasBundledBase &&
-      localQuestionCount >= 50 &&
-      remoteQuestionCount > 0 &&
-      remoteQuestionCount < Math.floor(localQuestionCount * 0.6);
-
-    if (suspiciousDownsync) {
-      if (canSyncQuestionsToCloud(questions)) {
-        const now = Date.now();
-        await ref.set({
-          uid,
-          questions,
-          updatedAtMs: now,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        markSyncSuccess('questions', now);
-      }
-      saveQuestionsMeta({
-        ...meta,
-        lastCloudPullAt: Date.now(),
-        lastCloudHealAt: Date.now()
-      });
-      cloudQuestionsLoadedUid = uid;
-      return;
-    }
-
-    // Prefer remote when local is empty or remote is newer.
-    const shouldUseRemote = !Array.isArray(questions) || questions.length === 0 || remoteEditedAt >= localEditedAt;
-    if (shouldUseRemote) {
-      questions = remoteQuestions;
-      storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
-      saveQuestionsMeta({
-        ...meta,
-        localEditedAt: remoteEditedAt || Date.now(),
-        localDirty: false,
-        lastCloudPullAt: Date.now()
-      });
-      if (typeof refreshFilterOptions === 'function') refreshFilterOptions();
-      if (typeof updateResumeSessionButton === 'function') updateResumeSessionButton();
-    }
+    // ログイン時はクラウドを問題データの正本として扱う。
+    questions = remoteQuestions;
+    saveQuestionsMeta({
+      ...meta,
+      localEditedAt: remoteEditedAt || Date.now(),
+      localDirty: false,
+      lastCloudPullAt: Date.now()
+    });
+    if (typeof refreshFilterOptions === 'function') refreshFilterOptions();
+    if (typeof updateResumeSessionButton === 'function') updateResumeSessionButton();
+    if (typeof updateMasteryCounts === 'function') updateMasteryCounts();
     markSyncSuccess('questions', remoteEditedAt || Date.now());
     cloudQuestionsLoadedUid = uid;
   } catch (e) {
     markSyncError('questions', e);
-    warnCloudError('クラウド問題データ同期(取得):', e);
+    console.warn('クラウド問題データ同期(取得)エラー:', e);
   } finally {
     cloudPullInFlight = false;
+    if (typeof updateMasteryCounts === 'function') updateMasteryCounts();
   }
 }
 
 async function pushQuestionsToCloud() {
   const uid = getAuthUid();
-  if (!uid) return;
-  if (!(window.firebase && firebase.firestore)) return;
-  if (!canSyncQuestionsToCloud(questions)) return;
+  if (!uid) return false;
+  if (!(window.firebase && firebase.firestore)) return false;
+  if (!isAdminUser()) return false;
   try {
     const now = Date.now();
-    await firebase.firestore().collection('question_sets').doc(uid).set({
-      uid,
+    await firebase.firestore().collection('question_sets').doc(SHARED_QUESTION_SET_DOC_ID).set({
       questions,
       updatedAtMs: now,
+      updatedByUid: uid,
+      updatedByEmail: String(getActiveUser()?.email || ''),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+    saveQuestionsMeta({
+      ...getQuestionsMeta(),
+      localDirty: false,
+      lastCloudPushAt: now
+    });
+    cloudQuestionsLoadedUid = uid;
     markSyncSuccess('questions', now);
+    return true;
   } catch (e) {
     markSyncError('questions', e);
-    warnCloudError('クラウド問題データ同期(保存):', e);
+    console.warn('クラウド問題データ同期(保存)エラー:', e);
+    return false;
   }
 }
 
@@ -921,7 +981,6 @@ function startCloudRealtimeSubscriptions() {
   const uid = getAuthUid();
   if (!uid) return;
   if (!(window.firebase && firebase.firestore)) return;
-  if (firestoreRealtimeDisabled) return;
   if (realtimeSubscribedUid === uid) return;
 
   stopCloudRealtimeSubscriptions();
@@ -965,7 +1024,6 @@ function startCloudRealtimeSubscriptions() {
         lastAccessAt: now,
         lastCloudPullAt: now
       }, uid);
-      updateMasteryCounts();
     }
 
     if (typeof updateResumeSessionButton === 'function') updateResumeSessionButton();
@@ -977,12 +1035,7 @@ function startCloudRealtimeSubscriptions() {
     tryRenderStatsIfOpen();
   }, (e) => {
     markSyncError('records', e);
-    warnCloudError('クラウド成績リアルタイム同期:', e);
-    if (isFirestoreConnectivityError(e)) {
-      firestoreRealtimeDisabled = true;
-      stopCloudRealtimeSubscriptions();
-      console.info('Firestoreリアルタイム同期を一時停止しました。ローカルモードで継続します。');
-    }
+    console.warn('クラウド成績リアルタイム同期エラー:', e);
   });
 
   unsubscribeStudyStatsRealtime = db.collection('study_stats').doc(uid).onSnapshot((snap) => {
@@ -992,12 +1045,7 @@ function startCloudRealtimeSubscriptions() {
     markSyncSuccess('studyTime', Number((snap.data() || {}).updatedAtMs || Date.now()));
   }, (e) => {
     markSyncError('studyTime', e);
-    warnCloudError('学習時間リアルタイム同期(study_stats)エラー:', e);
-    if (isFirestoreConnectivityError(e)) {
-      firestoreRealtimeDisabled = true;
-      stopCloudRealtimeSubscriptions();
-      console.info('Firestoreリアルタイム同期を一時停止しました。ローカルモードで継続します。');
-    }
+    console.warn('学習時間リアルタイム同期(study_stats)エラー:', e);
   });
 
   unsubscribeStudyRecordsRealtime = db.collection('records').doc(uid).onSnapshot((snap) => {
@@ -1008,12 +1056,7 @@ function startCloudRealtimeSubscriptions() {
     markSyncSuccess('studyTime', Number((snap.data() || {}).studyUpdatedAtMs || Date.now()));
   }, (e) => {
     markSyncError('studyTime', e);
-    warnCloudError('学習時間リアルタイム同期(records)エラー:', e);
-    if (isFirestoreConnectivityError(e)) {
-      firestoreRealtimeDisabled = true;
-      stopCloudRealtimeSubscriptions();
-      console.info('Firestoreリアルタイム同期を一時停止しました。ローカルモードで継続します。');
-    }
+    console.warn('学習時間リアルタイム同期(records)エラー:', e);
   });
 
   realtimeSubscribedUid = uid;
@@ -1063,6 +1106,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
         }, { merge: true });
         markSyncSuccess('records', migratedAt);
         tryRenderStatsIfOpen();
+        if (typeof updateMasteryCounts === 'function') updateMasteryCounts();
         cloudRecordsLoadedUid = uid;
         return;
       }
@@ -1084,6 +1128,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
         lastAccessAt: now,
         lastCloudPullAt: now
       }, uid);
+      if (typeof updateMasteryCounts === 'function') updateMasteryCounts();
       cloudRecordsLoadedUid = uid;
       return;
     }
@@ -1124,7 +1169,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
         lastAccessAt: now,
         lastCloudPullAt: now
       }, uid);
-      updateMasteryCounts();
+      if (typeof updateMasteryCounts === 'function') updateMasteryCounts();
     }
     if (remoteCalendar) applyRemoteStudyCalendar(remoteCalendar, remoteCalendarUpdatedAt);
     if (hasRemoteSessionField) applyRemoteStudySessionSnapshot(remoteSession, remoteSessionSavedAt);
@@ -1135,9 +1180,10 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
     cloudRecordsLoadedUid = uid;
   } catch (e) {
     markSyncError('records', e);
-    warnCloudError('クラウド成績データ同期(取得):', e);
+    console.warn('クラウド成績データ同期(取得)エラー:', e);
   } finally {
     cloudRecordsPullInFlight = false;
+    if (typeof updateMasteryCounts === 'function') updateMasteryCounts();
   }
 }
 
@@ -1163,7 +1209,7 @@ async function pushRecordsToCloud() {
     }
   } catch (e) {
     recordsPendingSync = true;
-    warnCloudError('クラウド成績データ同期(保存):', e);
+    console.warn('クラウド成績データ同期(保存)エラー:', e);
   } finally {
     cloudRecordsFlushInFlight = false;
   }
@@ -1242,7 +1288,7 @@ async function flushRecordDeltasToCloudIfNeeded() {
     }
   } catch (e) {
     markSyncError('records', e);
-    warnCloudError('クラウド成績データ同期(差分保存):', e);
+    console.warn('クラウド成績データ同期(差分保存)エラー:', e);
     // 直前の送信対象は pendingRecordDeltas を空にした後に失敗するため、再キューする。
     pendingRecordDeltas = mergePendingRecordDeltas(lastAttemptDeltas, pendingRecordDeltas);
   } finally {
@@ -1314,7 +1360,6 @@ function incrementStudyDailyCount(dateKey, amount = 1) {
     updatedAtMs: Date.now()
   });
   renderStudyCalendar();
-  renderStudyGoalPanel();
   calendarPendingSync = true;
   flushStudyCalendarToCloudIfNeeded();
 }
@@ -1330,12 +1375,14 @@ function mergeStudyCalendarDates(localData, remoteData) {
   for (const [key, checked] of Object.entries(remote.checkedDates)) {
     if (checked === true) mergedDates[key] = true;
   }
+
   const mergedCounts = { ...local.dailyCounts };
-  for (const [key, count] of Object.entries(remote.dailyCounts || {})) {
+  for (const [key, count] of Object.entries(remote.dailyCounts)) {
     const left = Math.max(0, Math.floor(Number(mergedCounts[key] || 0)));
     const right = Math.max(0, Math.floor(Number(count || 0)));
     if (right > left) mergedCounts[key] = right;
   }
+
   return {
     checkedDates: mergedDates,
     dailyCounts: mergedCounts,
@@ -1347,24 +1394,13 @@ function applyRemoteStudyCalendar(remoteCalendar, remoteUpdatedAtMs = 0) {
   const uid = getAuthUid();
   if (!uid) return;
   const local = loadStudyCalendarLocal(uid);
-  const isCalendarObj = !!(remoteCalendar && typeof remoteCalendar === 'object' && (
-    Object.prototype.hasOwnProperty.call(remoteCalendar, 'checkedDates') ||
-    Object.prototype.hasOwnProperty.call(remoteCalendar, 'dailyCounts')
-  ));
-  const checkedDates = isCalendarObj
-    ? (remoteCalendar.checkedDates || {})
-    : (remoteCalendar || {});
-  const dailyCounts = (remoteCalendar && typeof remoteCalendar === 'object' && remoteCalendar.dailyCounts)
-    ? remoteCalendar.dailyCounts
-    : {};
   const merged = mergeStudyCalendarDates(local, {
-    checkedDates,
-    dailyCounts,
+    checkedDates: remoteCalendar?.checkedDates || {},
+    dailyCounts: remoteCalendar?.dailyCounts || {},
     updatedAtMs: Number(remoteUpdatedAtMs || 0)
   });
   saveStudyCalendarLocal(merged, uid);
   renderStudyCalendar();
-  renderStudyGoalPanel();
 }
 
 async function pushStudyCalendarToCloud() {
@@ -1494,7 +1530,8 @@ function renderStudyCalendar() {
     const dateKey = toDateKey(date);
     const isToday = dateKey === todayKey;
     const isChecked = !!studyCalendar.checkedDates[dateKey];
-    html += `<div class="study-calendar-day${isToday ? ' is-today' : ''}${isChecked ? ' is-checked' : ''}" aria-label="${year}年${month + 1}月${day}日${isChecked ? ' 学習済み' : ''}">${day}${isChecked ? ' ✓' : ''}</div>`;
+    const count = Math.max(0, Math.floor(Number(studyCalendar.dailyCounts?.[dateKey] || 0)));
+    html += `<div class="study-calendar-day${isToday ? ' is-today' : ''}${isChecked ? ' is-checked' : ''}" aria-label="${year}年${month + 1}月${day}日${isChecked ? ' 学習済み' : ''}${count > 0 ? ` 学習数${count}件` : ''}"><span class="study-calendar-day-number">${day}</span>${isChecked ? '<span class="study-calendar-day-check">✓</span>' : ''}${count > 0 ? `<span class="study-calendar-day-count">${count}件</span>` : ''}</div>`;
   }
 
   gridEl.innerHTML = html;
@@ -1655,7 +1692,7 @@ async function flushStudyTimePendingToCloud() {
     markSyncSuccess('studyTime', Date.now());
   } catch (e) {
     markSyncError('studyTime', e);
-    warnCloudError('学習時間同期(保存):', e);
+    console.warn('学習時間同期(保存)エラー:', e);
   } finally {
     cloudStudyFlushInFlight = false;
   }
@@ -1709,7 +1746,7 @@ async function pullStudyTimeFromCloudIfNeeded() {
     cloudStudyLoadedUid = uid;
   } catch (e) {
     markSyncError('studyTime', e);
-    warnCloudError('学習時間同期(取得):', e);
+    console.warn('学習時間同期(取得)エラー:', e);
   } finally {
     cloudStudyPullInFlight = false;
   }
@@ -1730,13 +1767,17 @@ async function resetStudyTime() {
 
 function loadData() {
   currentUser = getActiveUser();
-  try { questions = JSON.parse(storageGetItem(KEY_QUESTIONS)) || []; } catch { questions = []; }
+  questions = [];
   const authUid = getAuthUid();
   const rk = getRecordStorageKey(authUid);
-  try { records = normalizeRecordMap(JSON.parse(storageGetItem(rk)) || {}); } catch { records = {}; }
+  if (CLOUD_ONLY_USER_DATA) {
+    records = {};
+  } else {
+    try { records = normalizeRecordMap(JSON.parse(storageGetItem(rk)) || {}); } catch { records = {}; }
+  }
 
   // 旧バージョン（単一キー保存）からの移行: uidキーが空なら legacy キーを引き継ぐ。
-  if (authUid && isRecordMapEmpty(records)) {
+  if (!CLOUD_ONLY_USER_DATA && authUid && isRecordMapEmpty(records)) {
     let legacy = {};
     try { legacy = normalizeRecordMap(JSON.parse(storageGetItem(KEY_RECORDS)) || {}); } catch { legacy = {}; }
     if (!isRecordMapEmpty(legacy)) {
@@ -1758,70 +1799,35 @@ function loadData() {
   sessionSnapshotPendingSync = false;
   studyCalendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   renderStudyCalendar();
-  pullQuestionsFromCloudIfNeeded();
+  if (authUid) pullQuestionsFromCloudIfNeeded(true);
   pullRecordsFromCloudIfNeeded(true);
   pullStudyTimeFromCloudIfNeeded();
   startCloudRealtimeSubscriptions();
   updateResumeSessionButton();
-  updateMasteryCounts();
-  renderStudyGoalPanel();
 }
 
 async function syncBundledQuestions() {
-  try {
-    if (window.location.protocol === 'file:') {
-      return;
-    }
-
-    // ユーザーが明示的に接続したデータファイルを優先する。
-    if (fileHandle) return;
-
-    const local = JSON.parse(storageGetItem(KEY_QUESTIONS) || '[]');
-    const meta = getQuestionsMeta();
-    // Preserve explicit local edits/imports on this device.
-    if (meta.localDirty) return;
-
-    const resp = await fetch(`output/all_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
-    if (!resp.ok) return;
-    const bundled = await resp.json();
-    if (!Array.isArray(bundled) || bundled.length === 0) return;
-
-    const localJson = JSON.stringify(Array.isArray(local) ? local : []);
-    const bundledJson = JSON.stringify(bundled);
-    if (localJson === bundledJson) {
-      saveQuestionsMeta({
-        ...meta,
-        localDirty: false,
-        lastBundledSyncAt: Date.now()
-      });
-      return;
-    }
-
-    const syncedAt = Date.now();
-    storageSetItem(KEY_QUESTIONS, JSON.stringify(bundled));
-    questions = bundled;
-    saveQuestionsMeta({
-      ...meta,
-      localDirty: false,
-      // 同梱データを適用した時刻を明示し、古いクラウド値での上書きを防ぐ。
-      localEditedAt: syncedAt,
-      lastBundledSyncAt: syncedAt
-    });
-  } catch {
-    // Bundled JSON is optional; fall back to existing localStorage data.
-  }
+  // 問題データはクラウドのみを正本とするため、同梱JSON同期は無効化。
+  if (CLOUD_ONLY_QUESTIONS) return;
 }
 
-function saveQuestions() {
-  storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
+async function saveQuestions() {
   saveQuestionsMeta({
     ...getQuestionsMeta(),
     localDirty: true,
-    localEditedAt: Date.now()
+    localEditedAt: Date.now(),
+    preventBundledOverride: true
   });
+  updateMasteryCounts();
   refreshSessionQueueAfterQuestionUpdate();
-  pushQuestionsToCloud();
-  writeToFile();
+  let cloudSaved = true;
+  if (getAuthUid() && isAdminUser()) {
+    cloudSaved = await pushQuestionsToCloud();
+  }
+  if (!CLOUD_ONLY_QUESTIONS) {
+    await writeToFile();
+  }
+  return cloudSaved;
 }
 
 function refreshSessionQueueAfterQuestionUpdate() {
@@ -1852,7 +1858,9 @@ function saveRecords(options = {}) {
   const uid = getAuthUid();
   const rk = getRecordStorageKey(uid);
   const now = Date.now();
-  storageSetItem(rk, JSON.stringify(records));
+  if (!CLOUD_ONLY_USER_DATA) {
+    storageSetItem(rk, JSON.stringify(records));
+  }
   if (uid) {
     saveRecordsMeta({
       ...getRecordsMeta(uid),
@@ -1864,8 +1872,6 @@ function saveRecords(options = {}) {
     recordsPendingSync = true;
     pushRecordsToCloud();
   }
-  updateMasteryCounts();
-  renderStudyGoalPanel();
   writeToFile();
 }
 
@@ -1953,16 +1959,17 @@ async function writeToFile() {
 
 async function applyFileData(data) {
   if (!data || typeof data !== 'object') throw new Error('不正なデータ形式');
+  const hasQuestions = Array.isArray(data.questions) && !CLOUD_ONLY_QUESTIONS;
   if (Array.isArray(data.users) && data.users.length > 0) storageSetItem(KEY_USERS, JSON.stringify(data.users));
-  if (Array.isArray(data.questions)) {
-    const now = Date.now();
+  if (hasQuestions) {
     questions = data.questions;
-    storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
+    // 明示的なファイル読込はローカル編集として扱う（同梱データ同期で巻き戻さない）
     saveQuestionsMeta({
       ...getQuestionsMeta(),
       localDirty: true,
-      localEditedAt: now,
-      lastFileImportAt: now
+      localEditedAt: Date.now(),
+      lastFileImportAt: Date.now(),
+      preventBundledOverride: true
     });
   }
   if (data.records && typeof data.records === 'object') {
@@ -1970,15 +1977,23 @@ async function applyFileData(data) {
       storageSetItem(`${KEY_RECORDS}_${uid}`, JSON.stringify(recs));
     }
   }
+  return { hasQuestions };
 }
 
 async function connectHandle(handle) {
   const file = await handle.getFile();
   const data = JSON.parse(await file.text());
-  await applyFileData(data);
+  const { hasQuestions } = await applyFileData(data);
   fileHandle    = handle;
   pendingHandle = null;
   await IDB.set('dataFileHandle', handle);
+
+  if (hasQuestions) {
+    await saveQuestions();
+    // 読込直後に loadData() が呼ばれても、古いクラウドpullで上書きされないようにする。
+    const uid = getAuthUid();
+    if (uid) cloudQuestionsLoadedUid = uid;
+  }
 }
 
 async function initFileStorage() {
@@ -2067,8 +2082,6 @@ async function logout() {
   sessionSnapshotPendingSync = false;
   studySessionSnapshotCache = {};
   pendingRecordDeltas = {};
-  setMasteryCountBarVisible(false);
-  renderStudyGoalPanel();
   showLoginOverlay();
 }
 
@@ -2106,40 +2119,28 @@ function hideLoginOverlay() {
   // Firebase認証後にデータを読み込む
   loadData();
   refreshFilterOptions();
-  updateMembersOnlyPanels();
-  requestAnimationFrame(updateMembersOnlyPanels);
 
   document.getElementById('login-overlay').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
   document.getElementById('current-user-name').textContent = currentUser?.displayName || currentUser?.email || '';
-  const activePage = document.querySelector('.page.active')?.id || 'page-study';
-  setMasteryCountBarVisible(!!getAuthUid() && activePage === 'page-study');
-  updateMasteryCounts();
-  renderStudyGoalPanel();
 }
 
 function renderUsers() {
-  const users = getUsers();
-  const activeId = getActiveUserId();
-  const html = users.map(u => `
-    <div class="user-row">
-      <span class="user-row-name">${esc(u.name)}${u.id === activeId ? ' <span class="badge-you">あなた</span>' : ''}</span>
-      ${u.id === activeId
-        ? `<button class="btn btn-ghost btn-sm" onclick="showChangePwForm()">パスワード変更</button>`
-        : `<button class="btn btn-danger btn-sm" onclick="deleteUserById('${esc(u.id)}')">\u524a\u9664</button>`}
-    </div>
-  `).join('');
-  document.getElementById('user-list').innerHTML = html || '<p class="users-empty">ユーザーなし</p>';
+  const box = document.getElementById('user-list');
+  if (!box) return;
+  box.innerHTML = '<p class="users-empty">ユーザー管理は Firebase Authentication 管理へ移行しました。ユーザー追加・削除は Firebase Console で実施してください。</p>';
+
+  const addUserBtn = document.getElementById('btn-show-add-user');
+  if (addUserBtn) addUserBtn.classList.add('hidden');
+  const addUserForm = document.getElementById('add-user-form');
+  if (addUserForm) addUserForm.classList.add('hidden');
+  const changePwForm = document.getElementById('change-pw-form');
+  if (changePwForm) changePwForm.classList.add('hidden');
 }
 
 function deleteUserById(id) {
-  const users = getUsers();
-  const user = users.find(u => u.id === id);
-  if (!user) return;
-  if (!confirm(`「${user.name}」を削除しますか？学習記録も削除されます。`)) return;
-  saveUsers(users.filter(u => u.id !== id));
-  storageRemoveItem(`${KEY_RECORDS}_${id}`);
-  renderUsers();
+  void id;
+  alert('ユーザー削除は Firebase Console から実施してください。');
 }
 
 // ── パスワードリセット・変更 ─────────────────────────────────────
@@ -2222,37 +2223,28 @@ function getRecord(limbId) {
     wrongDateKeys: [],
     review: normalizeReviewState(null),
     mastery: '',
-    masteryUpdatedAtMs: 0
+    masteryUpdatedAtMs: 0,
+    note: '',
+    bookmarked: false
   };
+}
+
+function isPerfectLimb(limbId) {
+  return getRecord(limbId).mastery === 'perfect';
 }
 
 function setLimbMastery(limbId, mastery) {
   if (!records[limbId]) {
-    records[limbId] = {
-      correct: 0,
-      wrong: 0,
-      wrongDateKeys: [],
-      review: normalizeReviewState(null),
-      mastery: '',
-      masteryUpdatedAtMs: 0
-    };
+    records[limbId] = { correct: 0, wrong: 0, wrongDateKeys: [], review: normalizeReviewState(null), mastery: '', masteryUpdatedAtMs: 0, note: '', bookmarked: false };
   }
-  records[limbId].mastery = normalizeMasteryValue(mastery);
+  const nextMastery = mastery === 'perfect' ? 'perfect' : mastery === 'ambiguous' ? 'ambiguous' : '';
+  records[limbId].mastery = nextMastery;
   records[limbId].masteryUpdatedAtMs = Date.now();
   saveRecords();
 }
 
 function addRecord(limbId, isCorrect) {
-  if (!records[limbId]) {
-    records[limbId] = {
-      correct: 0,
-      wrong: 0,
-      wrongDateKeys: [],
-      review: normalizeReviewState(null),
-      mastery: '',
-      masteryUpdatedAtMs: 0
-    };
-  }
+  if (!records[limbId]) records[limbId] = { correct: 0, wrong: 0, wrongDateKeys: [], review: normalizeReviewState(null), mastery: '', masteryUpdatedAtMs: 0, note: '', bookmarked: false };
   if (isCorrect) records[limbId].correct++;
   else {
     records[limbId].wrong++;
@@ -2260,6 +2252,7 @@ function addRecord(limbId, isCorrect) {
       ...(records[limbId].wrongDateKeys || []),
       toDateKey()
     ]);
+    // 不正解になった問題は「完璧」状態を解除する。
     records[limbId].mastery = '';
     records[limbId].masteryUpdatedAtMs = Date.now();
   }
@@ -2283,17 +2276,65 @@ function addRecord(limbId, isCorrect) {
   }
 }
 
+function setLimbNote(limbId, note) {
+  if (!records[limbId]) records[limbId] = { correct: 0, wrong: 0, wrongDateKeys: [], review: normalizeReviewState(null), mastery: '', masteryUpdatedAtMs: 0, note: '', bookmarked: false };
+  records[limbId].note = String(note || '').slice(0, 1000);
+  saveRecords();
+}
+
+function toggleLimbBookmark(limbId) {
+  if (!records[limbId]) records[limbId] = { correct: 0, wrong: 0, wrongDateKeys: [], review: normalizeReviewState(null), mastery: '', masteryUpdatedAtMs: 0, note: '', bookmarked: false };
+  records[limbId].bookmarked = !records[limbId].bookmarked;
+  saveRecords();
+  return records[limbId].bookmarked;
+}
+
+function priorityReviewScore(limbId, nowMs = Date.now()) {
+  const r = getRecord(limbId);
+  const total = r.correct + r.wrong;
+  let s = 0;
+  s += r.wrong * 3;
+  if (r.mastery === 'ambiguous') s += 2;
+  if (r.bookmarked) s += 2;
+  if (total === 0) s += 1;
+  if (isDueForReview(limbId, nowMs)) s += 2;
+  s += weakScore(limbId) * 5;
+  return s;
+}
+
 function makeInlineRecordId(limbId, key) {
   return `${limbId}::${key}`;
+}
+
+function getLimbAnswerSummary(limb) {
+  const inlineItems = parseInlineOxItems(limb?.text || '');
+  const inlineExpected = getInlineOxExpectedAnswers(limb, inlineItems);
+  const isInlineOxQuestion = inlineItems.length > 0 && inlineExpected.length === inlineItems.length;
+
+  if (!isInlineOxQuestion) {
+    const rec = getRecord(limb.id);
+    const correct = Math.max(0, Number(rec.correct || 0));
+    const wrong = Math.max(0, Number(rec.wrong || 0));
+    return { correct, wrong, total: correct + wrong };
+  }
+
+  let correct = 0;
+  let wrong = 0;
+  for (const it of inlineItems) {
+    const rec = getRecord(makeInlineRecordId(limb.id, it.key));
+    correct += Math.max(0, Number(rec.correct || 0));
+    wrong += Math.max(0, Number(rec.wrong || 0));
+  }
+
+  return { correct, wrong, total: correct + wrong };
 }
 
 /** 全肢をフラット化して返す */
 function getAllLimbs(filterSubject = '', filterCategory = '', splitInlineForStats = false) {
   const limbs = [];
-  const normalizedFilterCategory = normalizeCategoryLabel(filterCategory);
   for (const q of questions) {
     if (filterSubject  && q.subject  !== filterSubject)  continue;
-    if (normalizedFilterCategory && normalizeCategoryLabel(q.category) !== normalizedFilterCategory) continue;
+    if (filterCategory && q.category !== filterCategory) continue;
 
     for (const limb of q.limbs) {
       if (splitInlineForStats) {
@@ -2346,42 +2387,16 @@ function getCategories(subject = '') {
   return [...new Set(
     questions
       .filter(q => !subject || q.subject === subject)
-      .map(q => normalizeCategoryLabel(q.category))
+      .map(q => q.category)
       .filter(Boolean)
   )].sort();
 }
 
-// source / id から年度キー（h17, r7 など）を抽出する
-function extractYearKey(source, id = '') {
-  const rawSource = String(source || '').trim();
-  const rawId = String(id || '').trim();
-
-  // 1) 既存形式: H17-1 / R7-1
-  const direct = rawSource.match(/^([HhRr]\d+)/);
-  if (direct) return direct[1].toLowerCase();
-
-  // 2) 日本語形式: 令和元年・2019 / 平成30年 など
-  const normalized = rawSource
-    .replace(/[０-９]/g, (d) => String.fromCharCode(d.charCodeAt(0) - 0xFEE0))
-    .replace(/\s+/g, '');
-
-  const reiwa = normalized.match(/令和(元|\d+)年/);
-  if (reiwa) {
-    const n = reiwa[1] === '元' ? 1 : Number(reiwa[1]);
-    if (Number.isFinite(n) && n > 0) return `r${n}`;
-  }
-
-  const heisei = normalized.match(/平成(\d+)年/);
-  if (heisei) {
-    const n = Number(heisei[1]);
-    if (Number.isFinite(n) && n > 0) return `h${n}`;
-  }
-
-  // 3) sourceが崩れていてもID（例: R1-2）から復元
-  const fromId = rawId.match(/^([HhRr]\d+)/);
-  if (fromId) return fromId[1].toLowerCase();
-
-  return null;
+// source は "H17-1" / "R7-1" 形式。年度キー部分（h17/r7）を返す
+function extractYearKey(source) {
+  if (!source) return null;
+  const m = source.match(/^([HhRr]\d+)/);
+  return m ? m[1].toLowerCase() : null;
 }
 
 // 年度キー（h17, r7 等）を通し番号に変換（昇順ソート用）
@@ -2406,7 +2421,7 @@ function yearLabel(yk) {
 // 問題データに存在する年度キーを昇順で返す
 function getAvailableYears() {
   const keys = [...new Set(
-    questions.map(q => extractYearKey(q.source, q.id)).filter(Boolean)
+    questions.map(q => extractYearKey(q.source)).filter(Boolean)
   )];
   return keys.sort((a, b) => yearOrdinal(a) - yearOrdinal(b));
 }
@@ -2415,22 +2430,10 @@ function updateMembersOnlyPanels() {
   const loggedIn = !!(getAuthUid() || window.currentUser?.uid);
   const canManage = typeof isAdminUser === 'function' ? isAdminUser() : false;
 
-  // 管理者導線は管理者ユーザーのみに表示
-  const navAdminBtn = document.getElementById('nav-admin-btn');
-  const navManageBtn = document.getElementById('nav-manage-btn');
-  if (navAdminBtn) navAdminBtn.classList.toggle('hidden', !canManage);
-  if (navManageBtn) navManageBtn.classList.toggle('hidden', !canManage);
-
   const studyCalendarSection = document.getElementById('study-calendar-section');
   const studyCalendarGuestCta = document.getElementById('study-calendar-guest-cta');
-  if (studyCalendarSection) {
-    if (loggedIn) studyCalendarSection.classList.remove('hidden');
-    else studyCalendarSection.classList.add('hidden');
-  }
-  if (studyCalendarGuestCta) {
-    if (loggedIn) studyCalendarGuestCta.classList.add('hidden');
-    else studyCalendarGuestCta.classList.remove('hidden');
-  }
+  if (studyCalendarSection) studyCalendarSection.classList.toggle('hidden', !loggedIn);
+  if (studyCalendarGuestCta) studyCalendarGuestCta.classList.toggle('hidden', loggedIn);
 
   const adminPage = document.getElementById('page-admin');
   if (adminPage) adminPage.classList.toggle('hidden', !canManage);
@@ -2454,13 +2457,19 @@ function openAuthOverlay(form = 'register') {
 // ── ページ切り替え ────────────────────────────────────────────
 async function showPage(name) {
   if (name === 'admin' && !isAdminUser()) {
-    openAuthOverlay('login');
+    if (typeof openAdminLoginOverlay === 'function') {
+      openAdminLoginOverlay();
+      return;
+    }
     alert('管理者ページは管理者のみ利用できます。');
     return;
   }
 
   if (name === 'manage' && !isAdminUser()) {
-    openAuthOverlay('login');
+    if (typeof openAdminLoginOverlay === 'function') {
+      openAdminLoginOverlay();
+      return;
+    }
     alert('問題管理ページは管理者のみ利用できます。');
     return;
   }
@@ -2470,12 +2479,6 @@ async function showPage(name) {
   document.getElementById(`page-${name}`).classList.add('active');
   document.querySelector(`[data-page="${name}"]`).classList.add('active');
   updateMembersOnlyPanels();
-  const loggedIn = !!getAuthUid();
-  setMasteryCountBarVisible(loggedIn && name === 'study');
-  if (name === 'study' || name === 'stats') {
-    updateMasteryCounts();
-    renderStudyGoalPanel();
-  }
   if (name === 'stats') {
     if (getAuthUid()) {
       await pullRecordsFromCloudIfNeeded(true);
@@ -2486,6 +2489,7 @@ async function showPage(name) {
   if (name === 'study') {
     if (getAuthUid()) pullRecordsFromCloudIfNeeded(true);
     renderStudyCalendar();
+    renderStudyGoalPanel();
   }
   if (name === 'manage') { renderManage(); renderUsers(); updateFileStatus(); }
 }
@@ -2503,7 +2507,6 @@ function refreshFilterOptions() {
 
   const cats = getCategories(fSubj.value);
   fCat.innerHTML = '<option value="">すべて</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  fCat.value = cats.includes(normalizeCategoryLabel(fCat.value)) ? normalizeCategoryLabel(fCat.value) : '';
 
   // 管理ページ
   const mSubj = document.getElementById('manage-filter-subject');
@@ -2543,7 +2546,7 @@ function startSession() {
   // 年度フィルター
   if (yearFrom || yearTo) {
     limbs = limbs.filter(l => {
-      const k = extractYearKey(l.source, l.questionId);
+      const k = extractYearKey(l.source);
       if (!k) return true;
       const ord = yearOrdinal(k);
       if (yearFrom && ord < yearOrdinal(yearFrom)) return false;
@@ -2552,28 +2555,50 @@ function startSession() {
     });
   }
 
-  if (mode === 'weak') {
-    limbs = limbs.filter(l => getRecord(l.id).wrong > 0 || getRecord(l.id).correct === 0);
-    limbs.sort((a, b) => weakScore(b.id) - weakScore(a.id));
-  } else if (mode === 'perfect') {
-    limbs = limbs.filter(l => normalizeMasteryValue(getRecord(l.id).mastery) === 'perfect');
+  if (mode === 'perfect') {
+    limbs = limbs.filter(l => isPerfectLimb(l.id));
     limbs = shuffle(limbs);
   } else if (mode === 'ambiguous') {
-    limbs = limbs.filter(l => normalizeMasteryValue(getRecord(l.id).mastery) === 'ambiguous');
+    limbs = limbs.filter(l => getRecord(l.id).mastery === 'ambiguous');
     limbs = shuffle(limbs);
+  } else if (mode === 'bookmarked') {
+    limbs = limbs.filter(l => !!getRecord(l.id).bookmarked);
+  } else if (mode === 'priority') {
+    // 下の分岐でスコア順に整列する
+  } else {
+    limbs = limbs.filter(l => !isPerfectLimb(l.id));
+  }
+
+  if (mode === 'weak') {
+    limbs = limbs.filter(l => {
+      const s = getLimbAnswerSummary(l);
+      return s.wrong > 0 || s.correct === 0;
+    });
+    limbs.sort((a, b) => weakScore(b.id) - weakScore(a.id));
   } else if (mode === 'due') {
     const nowMs = Date.now();
     limbs = limbs.filter(l => isDueForReview(l.id, nowMs));
     limbs.sort((a, b) => reviewPriorityScore(b.id, nowMs) - reviewPriorityScore(a.id, nowMs));
   } else if (mode === 'unanswered') {
     limbs = limbs.filter(l => {
-      const r = getRecord(l.id);
-      return r.correct === 0 && r.wrong === 0;
+      const answered = getLimbAnswerSummary(l);
+      return answered.total === 0;
     });
     limbs = shuffle(limbs);
   } else if (mode === 'wrong') {
-    limbs = limbs.filter(l => getRecord(l.id).wrong > 0);
+    limbs = limbs.filter(l => getLimbAnswerSummary(l).wrong > 0);
     limbs = shuffle(limbs);
+  } else if (mode === 'priority') {
+    const nowMs = Date.now();
+    limbs = limbs
+      .filter(l => !isPerfectLimb(l.id) || getRecord(l.id).bookmarked)
+      .sort((a, b) => priorityReviewScore(b.id, nowMs) - priorityReviewScore(a.id, nowMs));
+  } else if (mode === 'bookmarked') {
+    limbs = shuffle(limbs);
+  } else if (mode === 'ambiguous') {
+    // already filtered above
+  } else if (mode === 'perfect') {
+    // already filtered above
   } else {
     limbs = shuffle(limbs);
   }
@@ -2638,8 +2663,9 @@ function renderCurrentLimb() {
   if (!session) return;
   const { queue, index } = session;
 
-  // 進捗更新
-  document.getElementById('progress-text').textContent = `${index + 1} / ${queue.length}`;
+  // 進捗更新（残り問題数のみ表示）
+  const remaining = queue.length - index;
+  document.getElementById('progress-text').textContent = `${remaining}`;
   const pct = ((index + 1) / queue.length * 100).toFixed(1);
   document.getElementById('progress-bar').style.width = pct + '%';
   saveStudySessionSnapshot();
@@ -2658,12 +2684,12 @@ function renderCurrentLimb() {
 
   const limb = queue[index];
   const rec  = getRecord(limb.id);
-  const total = rec.correct + rec.wrong;
-  const rate  = total > 0 ? Math.round(rec.correct / total * 100) : null;
+  const answered = getLimbAnswerSummary(limb);
+  const total = answered.total;
+  const rate  = total > 0 ? Math.round(answered.correct / total * 100) : null;
   const inlineItems = parseInlineOxItems(limb.text || '');
   const inlineExpected = getInlineOxExpectedAnswers(limb, inlineItems);
   const isInlineOxQuestion = inlineItems.length > 0 && inlineExpected.length === inlineItems.length;
-  const isTextAnswerQuestion = isTextQuestion(limb);
 
   const inlineTextHtml = isInlineOxQuestion ? renderInlineOxText(limb.text) : esc(limb.text);
   const isChoiceQuestion = Array.isArray(limb.options) && limb.options.length >= 2;
@@ -2680,29 +2706,49 @@ function renderCurrentLimb() {
         <button id="btn-inline-next" class="btn btn-primary" disabled>次の肢へ</button>
       </div>
     `
-    : isTextAnswerQuestion
-    ? `
-      <div class="text-answer-area">
-        <textarea id="text-answer-input" class="text-answer-input" rows="3" placeholder="回答を入力"></textarea>
-        <button id="btn-text-answer-submit" class="btn btn-primary">回答する</button>
-      </div>
-    `
     : `
       <div class="answer-buttons">
         ${answerButtonsHtml}
       </div>
     `;
 
+  const bookmarkLabel = rec.bookmarked ? '★ ブックマーク済み' : '☆ ブックマーク';
+  const noteSectionHtml = `
+    <div class="limb-tools">
+      <button id="btn-bookmark-limb" class="btn btn-ghost btn-sm" type="button">${bookmarkLabel}</button>
+      <textarea id="limb-note-input" class="limb-note-input" rows="2" placeholder="この肢のメモ（任意）">${esc(rec.note || '')}</textarea>
+      <button id="btn-save-limb-note" class="btn btn-ghost btn-sm" type="button">メモ保存</button>
+    </div>
+  `;
+
   const area = document.getElementById('limb-area');
   area.innerHTML = `
     <div class="limb-card card">
-      ${limb.source ? `<div class="limb-meta"><span class="badge badge-source">${esc(limb.source)}</span> <span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>` : `<div class="limb-meta"><span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>`}
+      ${limb.source ? `<div class="limb-meta"><span class="badge badge-source">${esc(limb.source)}</span> <span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(limb.category)}</span>` : ''}</div>` : `<div class="limb-meta"><span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(limb.category)}</span>` : ''}</div>`}
       ${limb.questionText ? `<div class="question-shared"><span class="question-label">問題文</span><span class="question-body">${esc(limb.questionText)}</span></div>` : ''}
       <div class="limb-text">${inlineTextHtml}</div>
-      <div class="limb-record">${rate !== null ? `正答率 ${rate}% (${rec.correct}○ ${rec.wrong}×)` : '未回答'}</div>
+      <div class="limb-record">${rate !== null ? `正答率 ${rate}% (${answered.correct}○ ${answered.wrong}×)` : '未回答'}</div>
+      ${noteSectionHtml}
       ${answerSectionHtml}
     </div>
   `;
+
+  const btnBookmark = document.getElementById('btn-bookmark-limb');
+  const btnSaveNote = document.getElementById('btn-save-limb-note');
+  const noteInput = document.getElementById('limb-note-input');
+  if (btnBookmark) {
+    btnBookmark.addEventListener('click', () => {
+      const flagged = toggleLimbBookmark(limb.id);
+      btnBookmark.textContent = flagged ? '★ ブックマーク済み' : '☆ ブックマーク';
+    });
+  }
+  if (btnSaveNote && noteInput) {
+    btnSaveNote.addEventListener('click', () => {
+      setLimbNote(limb.id, noteInput.value);
+      btnSaveNote.textContent = '保存済み';
+      setTimeout(() => { btnSaveNote.textContent = 'メモ保存'; }, 1000);
+    });
+  }
 
   if (isInlineOxQuestion) {
     startStudyTimerIfNeeded(true);
@@ -2775,31 +2821,6 @@ function renderCurrentLimb() {
     return;
   }
 
-  if (isTextAnswerQuestion) {
-    startStudyTimerIfNeeded(true);
-    const input = document.getElementById('text-answer-input');
-    const submit = document.getElementById('btn-text-answer-submit');
-    const handleSubmit = () => {
-      const userAnswer = input.value.trim();
-      if (!userAnswer) {
-        alert('回答を入力してください。');
-        return;
-      }
-      recordAnswerActionStudyDuration();
-      const isCorrect = isTextAnswerCorrect(limb, userAnswer);
-      addRecord(limb.id, isCorrect);
-      showResult(limb, isCorrect, `あなたの回答：${esc(userAnswer)}`);
-    };
-    submit.addEventListener('click', handleSubmit);
-    input.addEventListener('keydown', (event) => {
-      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-        event.preventDefault();
-        handleSubmit();
-      }
-    });
-    return;
-  }
-
   startStudyTimerIfNeeded(true);
 
   area.querySelectorAll('.btn-answer').forEach(btn => {
@@ -2831,14 +2852,11 @@ function showResult(limb, isCorrect, detailHtml = '', opts = {}) {
   document.getElementById('result-icon').textContent        = isCorrect ? '✅ 正解！' : '❌ 不正解';
   document.getElementById('result-icon').className          = 'result-icon ' + (isCorrect ? 'correct' : 'wrong');
   const isChoiceQuestion = Array.isArray(limb.options) && limb.options.length >= 2;
-  const isTextAnswerQuestion = isTextQuestion(limb);
   const inlineItems = parseInlineOxItems(limb.text || '');
   const inlineExpected = getInlineOxExpectedAnswers(limb, inlineItems);
   const isInlineOxQuestion = inlineItems.length > 0 && inlineExpected.length === inlineItems.length;
   const correctLabel = isChoiceQuestion
     ? (limb.correctText || '（未設定）')
-    : isTextAnswerQuestion
-      ? (getPrimaryCorrectText(limb) || '（未設定）')
     : isInlineOxQuestion
       ? '文中〇×（各所の判定）'
     : (limb.correct ? '正しい（○）' : '誤り（×）');
@@ -2846,28 +2864,89 @@ function showResult(limb, isCorrect, detailHtml = '', opts = {}) {
   document.getElementById('result-explanation').innerHTML   =
     `<strong>正解：${correctLabel}</strong>${detailHtml ? `<br><br>${detailHtml}` : ''}<br><br>${esc(explanation)}`;
 
-  const shouldRequireMastery = isCorrect && advanceSession;
-  if (masteryActions && btnPerfect && btnAmbiguous) {
-    masteryActions.classList.toggle('hidden', !shouldRequireMastery);
+  if (isCorrect && masteryActions && btnPerfect && btnAmbiguous) {
+    masteryActions.classList.remove('hidden');
+    btnNext.disabled = true;
+    overlay.dataset.requireMastery = '1';
+
+    // 毎回ベース状態を初期化（前回の選択状態を引きずらない）
+    btnPerfect.classList.add('btn-primary');
+    btnPerfect.classList.remove('btn-ghost');
+    btnAmbiguous.classList.add('btn-ghost');
+    btnAmbiguous.classList.remove('btn-primary');
+
+    const currentMastery = getRecord(limb.id).mastery;
+    btnPerfect.classList.toggle('is-selected', currentMastery === 'perfect');
+    btnAmbiguous.classList.toggle('is-selected', currentMastery === 'ambiguous');
+    const hasMastery = currentMastery === 'perfect' || currentMastery === 'ambiguous';
+    overlay.dataset.masterySelected = hasMastery ? '1' : '0';
+    btnNext.disabled = !hasMastery;
+    if (currentMastery === 'perfect') {
+      btnPerfect.classList.add('btn-primary');
+      btnPerfect.classList.remove('btn-ghost');
+      btnAmbiguous.classList.add('btn-ghost');
+      btnAmbiguous.classList.remove('btn-primary');
+    } else if (currentMastery === 'ambiguous') {
+      btnPerfect.classList.add('btn-ghost');
+      btnPerfect.classList.remove('btn-primary');
+      btnAmbiguous.classList.add('btn-primary');
+      btnAmbiguous.classList.remove('btn-ghost');
+    }
+
+    // モーダル背景色切り替え
+    const modalBox = overlay.querySelector('.modal');
+    modalBox.classList.remove('bg-perfect', 'bg-ambiguous');
+    if (currentMastery === 'perfect') {
+      modalBox.classList.add('bg-perfect');
+    } else if (currentMastery === 'ambiguous') {
+      modalBox.classList.add('bg-ambiguous');
+    }
+
+  } else if (masteryActions && btnPerfect && btnAmbiguous) {
+    masteryActions.classList.add('hidden');
     btnPerfect.classList.remove('is-selected');
     btnAmbiguous.classList.remove('is-selected');
-    if (shouldRequireMastery) {
-      overlay.dataset.requireMastery = '1';
-      const currentMastery = normalizeMasteryValue(getRecord(limb.id).mastery);
-      if (currentMastery === 'perfect') {
-        btnPerfect.classList.add('is-selected');
-        overlay.dataset.masterySelected = '1';
-        btnNext.disabled = false;
-      } else if (currentMastery === 'ambiguous') {
-        btnAmbiguous.classList.add('is-selected');
-        overlay.dataset.masterySelected = '1';
-        btnNext.disabled = false;
-      } else {
-        btnNext.disabled = true;
+    // モーダル背景色リセット
+    const modalBox = overlay.querySelector('.modal');
+    modalBox.classList.remove('bg-perfect', 'bg-ambiguous');
+  }
+
+  overlay.classList.remove('hidden');
+
+  // --- モードごとに、条件を満たさなくなった肢をキューから除外 ---
+  try {
+    const filters = session?.filters || getStudyFilters();
+    if (filters?.mode && session?.queue) {
+      let shouldRemove = false;
+      if (filters.mode === 'unanswered') {
+        // 未回答: 1回でも答えたら除外
+        shouldRemove = advanceSession && getLimbAnswerSummary(limb).total > 0;
+      } else if (filters.mode === 'wrong') {
+        // まちがえたもの: 不正解数が0になったら除外
+        const answered = getLimbAnswerSummary(limb);
+        shouldRemove = advanceSession && answered.wrong === 0;
+      } else if (filters.mode === 'ambiguous') {
+        // あいまいなもの: masteryがambiguousでなくなったら除外
+        const rec = getRecord(limb.id);
+        shouldRemove = advanceSession && rec.mastery !== 'ambiguous';
+      }
+      if (shouldRemove) {
+        const beforeLen = session.queue.length;
+        session.queue = session.queue.filter(l => l.id !== limb.id);
+        const removedCount = Math.max(0, beforeLen - session.queue.length);
+        if (removedCount > 0) {
+          // このあと「次へ」で index++ されるため、先に1戻す。
+          // index=0 の場合 -1 になるが、次へで 0 に戻るため正常。
+          // Math.max(0, ...) にすると index=0 時に 0 のままとなり、
+          // 次へで 1 になって次の問題が丸ごとスキップされるバグが生じる。
+          session.index = session.index - 1;
+        }
+        if (session.queue.length === 0) {
+          setTimeout(() => showCompletionMessage(), 300);
+        }
       }
     }
-  }
-  overlay.classList.remove('hidden');
+  } catch (e) { /* ignore */ }
 }
 
 function showCompletionMessage() {
@@ -2877,6 +2956,12 @@ function showCompletionMessage() {
 
 // ── 問題管理ページ ────────────────────────────────────────────
 function renderManage() {
+  if (!isAdminUser()) {
+    const list = document.getElementById('question-list');
+    if (list) list.innerHTML = '<p class="empty-state">管理者ログインが必要です。</p>';
+    return;
+  }
+
   refreshFilterOptions();
   const keyword  = document.getElementById('search-manage').value.toLowerCase();
   const subject  = document.getElementById('manage-filter-subject').value;
@@ -2890,7 +2975,7 @@ function renderManage() {
       if (!hay.includes(keyword)) return false;
     }
     if (yearFrom || yearTo) {
-      const k = extractYearKey(q.source, q.id);
+      const k = extractYearKey(q.source);
       if (k) {
         const ord = yearOrdinal(k);
         if (yearFrom && ord < yearOrdinal(yearFrom)) return false;
@@ -2908,6 +2993,7 @@ function renderManage() {
   }
 
   list.innerHTML = filtered.map(q => {
+    const encodedQuestionId = encodeURIComponent(String(q.id || ''));
     const limbsHtml = q.limbs.map((l, i) => {
       const rec   = getRecord(l.id);
       const total = rec.correct + rec.wrong;
@@ -2915,12 +3001,9 @@ function renderManage() {
       const inlineItems = parseInlineOxItems(l.text || '');
       const inlineExpected = getInlineOxExpectedAnswers(l, inlineItems);
       const isInlineOxQuestion = inlineItems.length > 0 && inlineExpected.length === inlineItems.length;
-      const isTextAnswerQuestion = isTextQuestion(l);
       const isChoiceQuestion = Array.isArray(l.options) && l.options.length >= 2;
       const answerBadge = isInlineOxQuestion
         ? `<span class="limb-correct-badge badge-inline-ox">文中〇×</span>`
-        : isTextAnswerQuestion
-        ? `<span class="limb-correct-badge badge-text-answer">記述: ${esc(getPrimaryCorrectText(l) || '')}</span>`
         : isChoiceQuestion
         ? `<span class="limb-correct-badge badge-choice">答: ${esc(l.correctText || '')}</span>`
         : `<span class="limb-correct-badge ${l.correct ? 'badge-o' : 'badge-x'}">${l.correct ? '○' : '×'}</span>`;
@@ -2934,16 +3017,16 @@ function renderManage() {
     return `<div class="manage-card card">
       <div class="manage-card-header">
         <div class="manage-card-left">
-          <input type="checkbox" class="manage-chk" data-id="${q.id}" />
+          <input type="checkbox" class="manage-chk" data-id="${esc(String(q.id || ''))}" />
           <div class="manage-card-meta">
             <span class="badge badge-subject">${esc(q.subject)}</span>
-              ${q.category ? `<span class="badge badge-category">${esc(normalizeCategoryLabel(q.category))}</span>` : ''}
+            ${q.category ? `<span class="badge badge-category">${esc(q.category)}</span>` : ''}
             ${q.source   ? `<span class="badge badge-source">${esc(q.source)}</span>`   : ''}
           </div>
         </div>
         <div class="manage-card-actions">
-          <button class="btn btn-ghost btn-sm" onclick="openEditModal('${q.id}')">✏️ 編集</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${q.id}')">🗑 削除</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditModalByEncodedId('${encodedQuestionId}')">✏️ 編集</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteQuestionByEncodedId('${encodedQuestionId}')">🗑 削除</button>
         </div>
       </div>
       ${q.questionText ? `<div class="manage-question-text">${esc(q.questionText)}</div>` : ''}
@@ -2954,21 +3037,45 @@ function renderManage() {
   updateBulkDeleteBtn();
 }
 
-function deleteQuestion(id) {
+async function deleteQuestion(id) {
+  if (!isAdminUser()) {
+    alert('この操作は管理者のみ実行できます。');
+    return;
+  }
   if (!confirm('この問題を削除しますか？')) return;
   questions = questions.filter(q => q.id !== id);
-  saveQuestions();
+  const cloudSaved = await saveQuestions();
+  if (!cloudSaved && getAuthUid()) {
+    alert('クラウドへの保存に失敗しました。通信状態を確認して再試行してください。');
+  }
   renderManage();
   refreshFilterOptions();
 }
 
-function bulkDeleteSelected() {
+function openEditModalByEncodedId(encodedId) {
+  const id = decodeURIComponent(String(encodedId || ''));
+  openEditModal(id);
+}
+
+function deleteQuestionByEncodedId(encodedId) {
+  const id = decodeURIComponent(String(encodedId || ''));
+  deleteQuestion(id);
+}
+
+async function bulkDeleteSelected() {
+  if (!isAdminUser()) {
+    alert('この操作は管理者のみ実行できます。');
+    return;
+  }
   const checked = document.querySelectorAll('.manage-chk:checked');
   if (checked.length === 0) return;
   if (!confirm(`選択した ${checked.length} 件の問題を削除しますか？`)) return;
   const ids = new Set([...checked].map(c => c.dataset.id));
   questions = questions.filter(q => !ids.has(q.id));
-  saveQuestions();
+  const cloudSaved = await saveQuestions();
+  if (!cloudSaved && getAuthUid()) {
+    alert('クラウドへの保存に失敗しました。通信状態を確認して再試行してください。');
+  }
   renderManage();
   refreshFilterOptions();
 }
@@ -2990,6 +3097,10 @@ function updateBulkDeleteBtn() {
 let editingQuestionId = null;
 
 function openAddModal() {
+  if (!isAdminUser()) {
+    alert('この操作は管理者のみ実行できます。');
+    return;
+  }
   editingQuestionId = null;
   document.getElementById('modal-title').textContent = '問題を追加';
   document.getElementById('form-question').reset();
@@ -2999,13 +3110,17 @@ function openAddModal() {
 }
 
 function openEditModal(id) {
+  if (!isAdminUser()) {
+    alert('この操作は管理者のみ実行できます。');
+    return;
+  }
   const q = questions.find(q => q.id === id);
   if (!q) return;
   editingQuestionId = id;
   document.getElementById('modal-title').textContent = '問題を編集';
   document.getElementById('edit-question-id').value  = id;
   document.getElementById('input-subject').value     = q.subject || '';
-  document.getElementById('input-category').value    = normalizeCategoryLabel(q.category || '');
+  document.getElementById('input-category').value    = q.category || '';
   document.getElementById('input-source').value      = q.source || '';
   document.getElementById('input-question-text').value = q.questionText || '';
   resetLimbsEditor(q.limbs);
@@ -3022,26 +3137,26 @@ function resetLimbsEditor(limbs) {
   limbs.forEach(l => addLimbRow(editor, l));
 }
 
-function addLimbRow(editor, limb = { text: '', correct: true, explanation: '', options: [], correctText: '', acceptedAnswers: [], inlineOxWrong: [] }) {
+function addLimbRow(editor, limb = { text: '', correct: true, explanation: '', options: [], correctText: '', inlineOxWrong: [] }) {
   const inlineItems = parseInlineOxItems(limb.text || '');
   const isInlineOxQuestion = inlineItems.length > 0 && (Array.isArray(limb.inlineOxWrong) || typeof limb.inlineOxWrong === 'string');
   const isChoiceQuestion = !isInlineOxQuestion && Array.isArray(limb.options) && limb.options.length > 0;
-  const isTextAnswerQuestion = !isInlineOxQuestion && !isChoiceQuestion && getAcceptedAnswers(limb).length > 0;
   const inlineWrongValue = Array.isArray(limb.inlineOxWrong)
     ? limb.inlineOxWrong.join(',')
     : (limb.inlineOxWrong || '');
-  const acceptedAnswersValue = getAcceptedAnswers(limb).join('\n');
   const div = document.createElement('div');
   div.className = 'limb-row';
+  if (limb && typeof limb.id === 'string' && limb.id) {
+    div.dataset.limbId = limb.id;
+  }
   div.innerHTML = `
     <div class="limb-row-top">
       <select class="limb-answer-type-select">
-        <option value="ox" ${!isChoiceQuestion && !isInlineOxQuestion && !isTextAnswerQuestion ? 'selected' : ''}>○×問題</option>
+        <option value="ox" ${!isChoiceQuestion && !isInlineOxQuestion ? 'selected' : ''}>○×問題</option>
         <option value="choice" ${isChoiceQuestion ? 'selected' : ''}>選択肢問題</option>
-        <option value="text" ${isTextAnswerQuestion ? 'selected' : ''}>記述問題</option>
         <option value="inline-ox" ${isInlineOxQuestion ? 'selected' : ''}>文中〇×問題</option>
       </select>
-      <select class="limb-correct-select ${isChoiceQuestion || isInlineOxQuestion || isTextAnswerQuestion ? 'hidden' : ''}">
+      <select class="limb-correct-select ${isChoiceQuestion || isInlineOxQuestion ? 'hidden' : ''}">
         <option value="true"  ${limb.correct ? 'selected' : ''}>○ 正しい</option>
         <option value="false" ${!limb.correct ? 'selected' : ''}>× 誤り</option>
       </select>
@@ -3054,9 +3169,6 @@ function addLimbRow(editor, limb = { text: '', correct: true, explanation: '', o
         <option value="">正解を選択</option>
       </select>
     </div>
-    <div class="limb-text-answer-settings ${isTextAnswerQuestion ? '' : 'hidden'}">
-      <textarea class="limb-accepted-answers-input" rows="2" placeholder="正解候補（1行に1つ。先頭が代表表示）">${esc(acceptedAnswersValue)}</textarea>
-    </div>
     <div class="limb-inline-ox-settings ${isInlineOxQuestion ? '' : 'hidden'}">
       <p class="limb-inline-ox-note">本文中に「（①語句）〇×」の形で記載し、誤りの番号を指定します（例: ③,④）。</p>
       <input type="text" class="limb-inline-wrong-input" placeholder="誤りの番号（例: ③,④）" value="${esc(inlineWrongValue)}" />
@@ -3067,7 +3179,6 @@ function addLimbRow(editor, limb = { text: '', correct: true, explanation: '', o
   const answerTypeSelect = div.querySelector('.limb-answer-type-select');
   const correctSelect = div.querySelector('.limb-correct-select');
   const choiceSettings = div.querySelector('.limb-choice-settings');
-  const textAnswerSettings = div.querySelector('.limb-text-answer-settings');
   const inlineSettings = div.querySelector('.limb-inline-ox-settings');
   const optionsInput = div.querySelector('.limb-options-input');
   const correctChoiceSelect = div.querySelector('.limb-correct-choice-select');
@@ -3091,11 +3202,9 @@ function addLimbRow(editor, limb = { text: '', correct: true, explanation: '', o
 
   answerTypeSelect.addEventListener('change', () => {
     const isChoice = answerTypeSelect.value === 'choice';
-    const isText = answerTypeSelect.value === 'text';
     const isInline = answerTypeSelect.value === 'inline-ox';
-    correctSelect.classList.toggle('hidden', isChoice || isInline || isText);
+    correctSelect.classList.toggle('hidden', isChoice || isInline);
     choiceSettings.classList.toggle('hidden', !isChoice);
-    textAnswerSettings.classList.toggle('hidden', !isText);
     inlineSettings.classList.toggle('hidden', !isInline);
     if (isChoice) syncChoiceOptions();
   });
@@ -3127,28 +3236,28 @@ function getLimbsFromEditor() {
       .map(v => v.trim())
       .filter(v => v);
     const correctText = row.querySelector('.limb-correct-choice-select').value.trim();
-    const acceptedAnswers = (row.querySelector('.limb-accepted-answers-input')?.value || '')
-      .split('\n')
-      .map(v => v.trim())
-      .filter(v => v);
     const inlineOxWrong = parseInlineWrongKeys(row.querySelector('.limb-inline-wrong-input').value);
+    const existingId = String(row.dataset.limbId || '').trim();
     return {
-      id:          uid(),
+      id:          existingId || uid(),
       text:        row.querySelector('.limb-text-input').value.trim(),
       correct:     row.querySelector('.limb-correct-select').value === 'true',
       options:     answerType === 'choice' ? options : [],
-      correctText: answerType === 'choice' ? correctText : answerType === 'text' ? (acceptedAnswers[0] || '') : '',
-      acceptedAnswers: answerType === 'text' ? acceptedAnswers : [],
+      correctText: answerType === 'choice' ? correctText : '',
       inlineOxWrong: answerType === 'inline-ox' ? inlineOxWrong : [],
       explanation: row.querySelector('.limb-explanation-input').value.trim(),
     };
   });
 }
 
-function saveQuestion(e) {
+async function saveQuestion(e) {
+  if (!isAdminUser()) {
+    alert('この操作は管理者のみ実行できます。');
+    return;
+  }
   e.preventDefault();
   const subject      = document.getElementById('input-subject').value.trim();
-  const category     = normalizeCategoryLabel(document.getElementById('input-category').value.trim());
+  const category     = document.getElementById('input-category').value.trim();
   const source       = document.getElementById('input-source').value.trim();
   const questionText = document.getElementById('input-question-text').value.trim();
 
@@ -3168,10 +3277,6 @@ function saveQuestion(e) {
     alert('選択肢問題の正解は、選択肢に含まれる値を入力してください。');
     return;
   }
-  if (limbs.some(l => Array.isArray(l.acceptedAnswers) && l.acceptedAnswers.length > 0 && !l.correctText)) {
-    alert('記述問題は正解候補を1つ以上入力してください。');
-    return;
-  }
   if (limbs.some(l => l.inlineOxWrong && l.inlineOxWrong.length > 0 && parseInlineOxItems(l.text).length === 0)) {
     alert('文中〇×問題は、本文に「（①語句）〇×」の形式を含めてください。');
     return;
@@ -3188,18 +3293,16 @@ function saveQuestion(e) {
   if (editingQuestionId) {
     const idx = questions.findIndex(q => q.id === editingQuestionId);
     if (idx >= 0) {
-      // 既存肢のIDを保持
-      const oldLimbs = questions[idx].limbs;
-      limbs.forEach((l, i) => {
-        if (oldLimbs[i]) l.id = oldLimbs[i].id;
-      });
       questions[idx] = { id: editingQuestionId, subject, category, source, questionText, limbs };
     }
   } else {
     questions.push({ id: uid(), subject, category, source, questionText, limbs });
   }
 
-  saveQuestions();
+  const cloudSaved = await saveQuestions();
+  if (!cloudSaved && getAuthUid()) {
+    alert('クラウドへの保存に失敗しました。通信状態を確認して再試行してください。');
+  }
   refreshFilterOptions();
   closeModal();
   renderManage();
@@ -3254,41 +3357,6 @@ function getInlineOxExpectedAnswers(limb, items) {
   return items.map(it => !wrong.has(it.key));
 }
 
-function getAcceptedAnswers(limb) {
-  if (Array.isArray(limb.acceptedAnswers) && limb.acceptedAnswers.length > 0) {
-    return limb.acceptedAnswers.map(v => String(v || '').trim()).filter(Boolean);
-  }
-  if (limb.correctText) {
-    return [String(limb.correctText).trim()].filter(Boolean);
-  }
-  return [];
-}
-
-function getPrimaryCorrectText(limb) {
-  return getAcceptedAnswers(limb)[0] || '';
-}
-
-function normalizeTextAnswer(text) {
-  return String(text || '')
-    .normalize('NFKC')
-    .replace(/（\s*\d+\s*字\s*）/g, '')
-    .replace(/[\s\u3000]+/g, '')
-    .replace(/[、。,.，．・･()（）\[\]［］{}｛｝「」『』【】〈〉《》'"’”]/g, '')
-    .trim();
-}
-
-function isTextQuestion(limb) {
-  const hasChoices = Array.isArray(limb.options) && limb.options.length >= 2;
-  const inlineItems = parseInlineOxItems(limb.text || '');
-  return !hasChoices && inlineItems.length === 0 && getAcceptedAnswers(limb).length > 0;
-}
-
-function isTextAnswerCorrect(limb, userAnswer) {
-  const normalizedUserAnswer = normalizeTextAnswer(userAnswer);
-  if (!normalizedUserAnswer) return false;
-  return getAcceptedAnswers(limb).some(answer => normalizeTextAnswer(answer) === normalizedUserAnswer);
-}
-
 function renderInlineOxText(text) {
   const src = String(text || '');
   const re = /（([^）]+)）(?:〇×\s*([^（\n]*?)|([^（]*?)〇×)/g;
@@ -3341,6 +3409,10 @@ function buildInlineOxResultHtml(items, expected, userAnswers) {
 
 // ── インポート / エクスポート ──────────────────────────────────
 function exportJSON() {
+  if (!isAdminUser()) {
+    alert('JSONエクスポートは管理者のみ実行できます。');
+    return;
+  }
   const blob = new Blob([JSON.stringify(questions, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -3351,10 +3423,19 @@ function exportJSON() {
 }
 
 function importJSON(file) {
+  if (!isAdminUser()) {
+    alert('JSONインポートは管理者のみ実行できます。');
+    return;
+  }
   return importJSONFiles([file]);
 }
 
 function importJSONFiles(files) {
+  if (!isAdminUser()) {
+    alert('JSONインポートは管理者のみ実行できます。');
+    return;
+  }
+
   const readFile = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -3370,7 +3451,7 @@ function importJSONFiles(files) {
     reader.readAsText(file);
   });
 
-  Promise.all(files.map(readFile)).then((results) => {
+  Promise.all(files.map(readFile)).then(async (results) => {
     const merged = [...questions];
     let totalNew = 0;
     let totalUpdated = 0;
@@ -3387,7 +3468,10 @@ function importJSONFiles(files) {
       }
     }
     questions = merged;
-    saveQuestions();
+    const cloudSaved = await saveQuestions();
+    if (!cloudSaved && getAuthUid()) {
+      alert('クラウドへの保存に失敗しました。通信状態を確認して再試行してください。');
+    }
     refreshFilterOptions();
     renderManage();
     const fileNames = results.map(r => r.name).join('、');
@@ -3489,12 +3573,30 @@ function renderStats() {
       <span class="weak-rank">${i + 1}</span>
       <div class="weak-limb-info">
         <div class="weak-limb-text">${esc(limb.text.slice(0, 80))}${limb.text.length > 80 ? '…' : ''}</div>
-        <div class="weak-limb-meta">${esc(limb.subject)}${limb.category ? ' / ' + esc(normalizeCategoryLabel(limb.category)) : ''}　 正答率 ${rt}% (${r.correct}○ ${r.wrong}×)${esc(wrongDateInfo)}</div>
+        <div class="weak-limb-meta">${esc(limb.subject)}${limb.category ? ' / ' + esc(limb.category) : ''}　 正答率 ${rt}% (${r.correct}○ ${r.wrong}×)${r.bookmarked ? ' / ★' : ''}${esc(wrongDateInfo)}</div>
       </div>
     </div>`;
   }).join('');
   document.getElementById('weak-limbs-list').innerHTML = weakHtml || '<p>苦手肢なし</p>';
+
   renderStudyGoalPanel();
+}
+
+function getRecentDailyStudyCounts(days = 14) {
+  const limit = Math.max(1, Math.floor(Number(days || 14)));
+  const out = [];
+  const now = new Date();
+  for (let i = 0; i < limit; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    const key = toDateKey(d);
+    const count = Math.max(0, Math.floor(Number(studyCalendar.dailyCounts?.[key] || 0)));
+    out.push({
+      key,
+      dateLabel: `${d.getMonth() + 1}/${d.getDate()}`,
+      count
+    });
+  }
+  return out;
 }
 
 // ── XSSエスケープ ────────────────────────────────────────────
@@ -3510,10 +3612,6 @@ function esc(str) {
 
 // ── イベント登録 ──────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  if (window.location.protocol === 'file:') {
-    alert('このアプリは file:// 直開きでは正常動作しません。\n\nVS Code の Live Server などで http://localhost から開いてください。\n(認証と問題データ読み込みが失敗します)');
-  }
-
   // ── ファイルストレージ初期化 ──────────────────────────────
   await initFileStorage();
 
@@ -3532,54 +3630,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // パスワードリセットは Firebase 版 UI/auth-module.js 側で処理
 
-  // ユーザー追加フォーム
-  document.getElementById('btn-show-add-user').addEventListener('click', () => {
-    document.getElementById('new-user-name').value = '';
-    document.getElementById('new-user-pw').value = '';
-    document.getElementById('new-user-pw2').value = '';
-    document.getElementById('add-user-error').classList.add('hidden');
-    document.getElementById('add-user-form').classList.remove('hidden');
-    document.getElementById('new-user-name').focus();
-  });
-  document.getElementById('btn-cancel-add-user').addEventListener('click', () => {
-    document.getElementById('add-user-form').classList.add('hidden');
-  });
-  document.getElementById('btn-add-user').addEventListener('click', async () => {
-    const name  = document.getElementById('new-user-name').value.trim();
-    const pw    = document.getElementById('new-user-pw').value;
-    const pw2   = document.getElementById('new-user-pw2').value;
-    const errEl = document.getElementById('add-user-error');
-    errEl.classList.add('hidden');
-    if (!name)         { errEl.textContent = 'ユーザー名を入力してください'; errEl.classList.remove('hidden'); return; }
-    if (pw.length < 4) { errEl.textContent = 'パスワードは4文字以上'; errEl.classList.remove('hidden'); return; }
-    if (pw !== pw2)    { errEl.textContent = 'パスワードが一致しません'; errEl.classList.remove('hidden'); return; }
-    const users = getUsers();
-    if (users.find(u => u.name === name)) { errEl.textContent = 'そのユーザー名は既に使用中です'; errEl.classList.remove('hidden'); return; }
-    users.push({ id: uid(), name, pwHash: await hashPassword(pw) });
-    saveUsers(users);
-    document.getElementById('add-user-form').classList.add('hidden');
-    renderUsers();
-  });
+  // ローカルユーザー管理は段階廃止（Firebase Auth 管理へ移行）
+  const addUserBtn = document.getElementById('btn-show-add-user');
+  if (addUserBtn) {
+    addUserBtn.addEventListener('click', () => {
+      alert('ユーザー追加は Firebase Console から実施してください。');
+    });
+    addUserBtn.classList.add('hidden');
+  }
 
-  // パスワード変更
-  document.getElementById('btn-change-pw-cancel').addEventListener('click', () => {
-    document.getElementById('change-pw-form').classList.add('hidden');
-  });
-  document.getElementById('btn-change-pw-do').addEventListener('click', async () => {
-    const oldPw  = document.getElementById('change-pw-old').value;
-    const newPw  = document.getElementById('change-pw-new').value;
-    const newPw2 = document.getElementById('change-pw-new2').value;
-    const errEl  = document.getElementById('change-pw-error');
-    errEl.classList.add('hidden');
-    const err = await changePassword(oldPw, newPw, newPw2);
-    if (err) {
-      errEl.textContent = err;
-      errEl.classList.remove('hidden');
-    } else {
-      document.getElementById('change-pw-form').classList.add('hidden');
-      alert('パスワードを変更しました。');
-    }
-  });
+  const cancelAddUserBtn = document.getElementById('btn-cancel-add-user');
+  if (cancelAddUserBtn) {
+    cancelAddUserBtn.addEventListener('click', () => {
+      const form = document.getElementById('add-user-form');
+      if (form) form.classList.add('hidden');
+    });
+  }
+
+  const doAddUserBtn = document.getElementById('btn-add-user');
+  if (doAddUserBtn) {
+    doAddUserBtn.addEventListener('click', () => {
+      alert('ユーザー追加は Firebase Console から実施してください。');
+    });
+  }
+
+  const changePwCancelBtn = document.getElementById('btn-change-pw-cancel');
+  if (changePwCancelBtn) {
+    changePwCancelBtn.addEventListener('click', () => {
+      const form = document.getElementById('change-pw-form');
+      if (form) form.classList.add('hidden');
+    });
+  }
+
+  const changePwDoBtn = document.getElementById('btn-change-pw-do');
+  if (changePwDoBtn) {
+    changePwDoBtn.addEventListener('click', () => {
+      alert('パスワード変更は Firebase Auth の再認証フローへ移行予定です。現在はパスワード再設定をご利用ください。');
+    });
+  }
 
   // ── ファイルストレージ ──────────────────────────────────────
   document.getElementById('btn-new-data-file').addEventListener('click', async () => {
@@ -3627,11 +3715,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     btn.addEventListener('click', () => showPage(btn.dataset.page));
   });
 
-  const btnOpenManageFromAdmin = document.getElementById('btn-open-manage-from-admin');
-  if (btnOpenManageFromAdmin) {
-    btnOpenManageFromAdmin.addEventListener('click', () => showPage('manage'));
-  }
-
   [
     ['btn-open-register-from-stats', 'register'],
     ['btn-open-login-from-stats', 'login'],
@@ -3678,11 +3761,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const goalInput = document.getElementById('study-goal-value');
   const saveGoalBtn = document.getElementById('btn-save-goal');
-  if (goalInput) goalInput.value = String(loadStudyGoal());
+  if (goalInput) {
+    goalInput.value = String(loadStudyGoal());
+  }
   if (saveGoalBtn && goalInput) {
     saveGoalBtn.addEventListener('click', () => {
-      const value = saveStudyGoal(goalInput.value);
-      goalInput.value = String(value);
+      const v = saveStudyGoal(goalInput.value);
+      goalInput.value = String(v);
       renderStudyGoalPanel();
     });
   }
@@ -3690,9 +3775,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const countPerfectBtn = document.getElementById('count-perfect');
   const countAmbiguousBtn = document.getElementById('count-ambiguous');
   const countWrongBtn = document.getElementById('count-wrong');
-  if (countPerfectBtn) countPerfectBtn.addEventListener('click', () => jumpToStudyMode('perfect'));
-  if (countAmbiguousBtn) countAmbiguousBtn.addEventListener('click', () => jumpToStudyMode('ambiguous'));
-  if (countWrongBtn) countWrongBtn.addEventListener('click', () => jumpToStudyMode('wrong'));
+  if (countPerfectBtn) {
+    countPerfectBtn.addEventListener('click', () => jumpToStudyMode('perfect'));
+  }
+  if (countAmbiguousBtn) {
+    countAmbiguousBtn.addEventListener('click', () => jumpToStudyMode('ambiguous'));
+  }
+  if (countWrongBtn) {
+    countWrongBtn.addEventListener('click', () => jumpToStudyMode('wrong'));
+  }
 
   document.getElementById('filter-subject').addEventListener('change', (e) => {
     const cats = getCategories(e.target.value);
@@ -3701,38 +3792,45 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 結果モーダル
-  const btnMarkPerfect = document.getElementById('btn-mark-perfect');
-  const btnMarkAmbiguous = document.getElementById('btn-mark-ambiguous');
-  if (btnMarkPerfect) {
-    btnMarkPerfect.addEventListener('click', () => {
-      const modal = document.getElementById('modal-result');
-      const limbId = String(modal.dataset.currentLimbId || '');
-      if (!limbId) return;
-      setLimbMastery(limbId, 'perfect');
-      modal.dataset.masterySelected = '1';
-      document.getElementById('btn-result-next').disabled = false;
-      btnMarkPerfect.classList.add('is-selected');
-      btnMarkAmbiguous?.classList.remove('is-selected');
-      updateMasteryCounts();
-    });
-  }
-  if (btnMarkAmbiguous) {
-    btnMarkAmbiguous.addEventListener('click', () => {
-      const modal = document.getElementById('modal-result');
-      const limbId = String(modal.dataset.currentLimbId || '');
-      if (!limbId) return;
-      setLimbMastery(limbId, 'ambiguous');
-      modal.dataset.masterySelected = '1';
-      document.getElementById('btn-result-next').disabled = false;
-      btnMarkAmbiguous.classList.add('is-selected');
-      btnMarkPerfect?.classList.remove('is-selected');
-      updateMasteryCounts();
-    });
-  }
+  document.getElementById('btn-mark-perfect').addEventListener('click', () => {
+    const modal = document.getElementById('modal-result');
+    const limbId = String(modal.dataset.currentLimbId || '');
+    if (!limbId) return;
+    setLimbMastery(limbId, 'perfect');
+    modal.dataset.masterySelected = '1';
+    document.getElementById('btn-result-next').disabled = false;
+    // 色とボタン状態のみ即時反映
+    const btnPerfect = document.getElementById('btn-mark-perfect');
+    const btnAmbiguous = document.getElementById('btn-mark-ambiguous');
+    btnPerfect.classList.add('is-selected', 'btn-primary');
+    btnAmbiguous.classList.remove('is-selected', 'btn-primary');
+    const modalBox = modal.querySelector('.modal');
+    modalBox.classList.add('bg-perfect');
+    modalBox.classList.remove('bg-ambiguous');
+  });
+
+  document.getElementById('btn-mark-ambiguous').addEventListener('click', () => {
+    const modal = document.getElementById('modal-result');
+    const limbId = String(modal.dataset.currentLimbId || '');
+    if (!limbId) return;
+    setLimbMastery(limbId, 'ambiguous');
+    modal.dataset.masterySelected = '1';
+    document.getElementById('btn-result-next').disabled = false;
+    // 色とボタン状態のみ即時反映
+    const btnPerfect = document.getElementById('btn-mark-perfect');
+    const btnAmbiguous = document.getElementById('btn-mark-ambiguous');
+    btnPerfect.classList.remove('is-selected', 'btn-primary');
+    btnAmbiguous.classList.add('is-selected', 'btn-primary');
+    const modalBox = modal.querySelector('.modal');
+    modalBox.classList.add('bg-ambiguous');
+    modalBox.classList.remove('bg-perfect');
+  });
 
   document.getElementById('btn-result-next').addEventListener('click', () => {
     const modal = document.getElementById('modal-result');
-    if (modal.dataset.requireMastery === '1' && modal.dataset.masterySelected !== '1') return;
+    if (modal.dataset.requireMastery === '1' && modal.dataset.masterySelected !== '1') {
+      return;
+    }
     const shouldAdvance = modal.dataset.advanceSession !== '0';
     modal.classList.add('hidden');
     if (shouldAdvance && session) {
@@ -3767,6 +3865,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // インポート / エクスポート
   document.getElementById('btn-export').addEventListener('click', exportJSON);
   document.getElementById('btn-import').addEventListener('click', () => {
+    if (!isAdminUser()) {
+      alert('JSONインポートは管理者のみ実行できます。');
+      return;
+    }
     document.getElementById('import-file').value = '';
     document.getElementById('import-file').click();
   });
@@ -3782,7 +3884,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('modal-result').addEventListener('click', (e) => {
     if (e.target === document.getElementById('modal-result')) {
       const modal = document.getElementById('modal-result');
-      if (modal.dataset.requireMastery === '1' && modal.dataset.masterySelected !== '1') return;
+      if (modal.dataset.requireMastery === '1' && modal.dataset.masterySelected !== '1') {
+        return;
+      }
       const shouldAdvance = modal.dataset.advanceSession !== '0';
       modal.classList.add('hidden');
       if (shouldAdvance && session) { session.index++; renderCurrentLimb(); }
