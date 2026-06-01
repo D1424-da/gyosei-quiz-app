@@ -159,6 +159,33 @@
 				"-OfflineMergeOnly"
 			],
 			"problemMatcher": []
+		},
+		{
+			"label": "bulk-convert-combo-choice-to-ox",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\bulk_convert_combo_choice_to_ox.ps1"
+			],
+			"problemMatcher": []
+		},
+		{
+			"label": "offline-merge-after-bulk-convert",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-ExecutionPolicy",
+				"Bypass",
+				"-File",
+				".\\gyosyo_scraper.ps1",
+				"-OfflineMergeOnly"
+			],
+			"problemMatcher": []
 		}
 	]
 }
