@@ -3560,18 +3560,21 @@ function renderStats() {
 // ── 問題文リード文抽出（combo_ox の全肢テキスト混入を除去）─────────────
 function getLeadText(text) {
   if (!text) return '';
-  const kataRe = /[\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3][\s\u3000\uff0e.\u3001,::\uff1a\-]/;
-  const numRe  = /[1-5\uff11-\uff15][\s\u3000\uff0e.\u3001,::\uff1a]/;
-  const lines  = text.split(/\r?\n/);
-  let cutLine  = lines.length;
+  // 行頭から始まるカタカナ肢ラベル（ア．イ．など）を検出
+  const kataStartRe = /^[\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3][\s\u3000\uff0e.\u3001]/;
+  // 行頭から始まる数字肢ラベル（1. 2. など）を検出
+  const numStartRe  = /^[1-5\uff11-\uff15][\s\u3000\uff0e.]/;
+  const lines       = text.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
     const tr = lines[i].trimStart();
-    if (kataRe.test(tr) || numRe.test(tr)) { cutLine = i; break; }
+    if (kataStartRe.test(tr) || numStartRe.test(tr)) {
+      // i>0: i行目より前がリード文
+      if (i > 0) return lines.slice(0, i).join('\n').trimEnd();
+      // i=0: 同一行内でカットが必要（フォールバックへ）
+      break;
+    }
   }
-  if (cutLine < lines.length) {
-    return lines.slice(0, cutLine).join('\n').trimEnd();
-  }
-  // インラインのカタカナマーカーにもフォールバック
+  // インライン検索：「ア．」「ア.」パターンを探し、その前をリード文とする
   const m = text.match(/[\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3][\uff0e.]/);
   if (m) return text.substring(0, m.index).trimEnd();
   return text.trimEnd();
