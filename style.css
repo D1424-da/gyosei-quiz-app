@@ -809,7 +809,7 @@ body {
 }
 
 .study-calendar-day {
-  min-height: 40px;
+  min-height: 58px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -818,10 +818,28 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   gap: 4px;
   font-size: .88rem;
   font-weight: 600;
+  padding: 6px 4px;
   transition: background var(--transition), border-color var(--transition);
+}
+
+.study-calendar-day-number {
+  line-height: 1;
+}
+
+.study-calendar-day-check {
+  line-height: 1;
+  font-size: .76rem;
+}
+
+.study-calendar-day-count {
+  font-size: .72rem;
+  line-height: 1;
+  font-weight: 700;
+  color: inherit;
 }
 
 .study-calendar-day.is-today {

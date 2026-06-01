@@ -1494,7 +1494,8 @@ function renderStudyCalendar() {
     const dateKey = toDateKey(date);
     const isToday = dateKey === todayKey;
     const isChecked = !!studyCalendar.checkedDates[dateKey];
-    html += `<div class="study-calendar-day${isToday ? ' is-today' : ''}${isChecked ? ' is-checked' : ''}" aria-label="${year}年${month + 1}月${day}日${isChecked ? ' 学習済み' : ''}">${day}${isChecked ? ' ✓' : ''}</div>`;
+    const count = Math.max(0, Math.floor(Number(studyCalendar.dailyCounts?.[dateKey] || 0)));
+    html += `<div class="study-calendar-day${isToday ? ' is-today' : ''}${isChecked ? ' is-checked' : ''}" aria-label="${year}年${month + 1}月${day}日${isChecked ? ' 学習済み' : ''}${count > 0 ? ` 学習数${count}件` : ''}"><span class="study-calendar-day-number">${day}</span>${isChecked ? '<span class="study-calendar-day-check">✓</span>' : ''}${count > 0 ? `<span class="study-calendar-day-count">${count}件</span>` : ''}</div>`;
   }
 
   gridEl.innerHTML = html;

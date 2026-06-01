@@ -90,6 +90,102 @@ function Clean-TextAnswer {
     return $value.Trim()
 }
 
+function Normalize-KataCombo {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
+    return ([regex]::Replace($Text, '[^アイウエオカキクケコ]', ''))
+}
+
+function Format-KataCombo {
+    param([string]$Text)
+    $combo = Normalize-KataCombo $Text
+    if ([string]::IsNullOrWhiteSpace($combo)) { return "" }
+    return (($combo.ToCharArray() | ForEach-Object { [string]$_ }) -join '・')
+}
+
+function Extract-KataComboFromText {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return "" }
+
+    $normalized = Normalize-Digits $Text
+    $parenMatches = [regex]::Matches($normalized, '[（\(][^）\)]*[アイウエオカキクケコ][^）\)]*[）\)]')
+    foreach ($m in $parenMatches) {
+        $combo = Normalize-KataCombo $m.Value
+        if ($combo.Length -ge 1) { return $combo }
+    }
+
+    $inline = [regex]::Match($normalized, '[アイウエオカキクケコ](?:[・、,\s　]+[アイウエオカキクケコ]){1,}')
+    if ($inline.Success) {
+        $combo = Normalize-KataCombo $inline.Value
+        if ($combo.Length -ge 1) { return $combo }
+    }
+
+    return ""
+}
+
+function Parse-ChoiceComboMap {
+    param([string]$Line)
+
+    $map = @{}
+    if ([string]::IsNullOrWhiteSpace($Line)) { return $map }
+
+    $normalized = Normalize-Digits $Line
+    $work = $normalized
+    $sepChars = @(
+        '.', ':', ',', '/', '(', ')', '[', ']',
+        [string][char]0xFF1A, [string][char]0xFF0E, [string][char]0x3001,
+        [string][char]0x30FB, [string][char]0xFF0F,
+        [string][char]0xFF08, [string][char]0xFF09,
+        [string][char]0x3010, [string][char]0x3011
+    )
+    foreach ($sep in $sepChars) {
+        $work = $work.Replace($sep, ' ')
+    }
+    $tokens = @($work -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+    for ($i = 0; $i -lt $tokens.Count; $i++) {
+        $tok = [string]$tokens[$i]
+
+        if ($tok -match '^(\d{1,2})([アイウエオカキクケコ]{2,5})$') {
+            $idx = [int]$Matches[1]
+            if ($idx -lt 1 -or $idx -gt 20) { continue }
+            $combo = Normalize-KataCombo $Matches[2]
+            if (-not [string]::IsNullOrWhiteSpace($combo)) {
+                $map[$idx] = $combo
+            }
+            continue
+        }
+
+        if ($tok -notmatch '^\d{1,2}$') { continue }
+        $idx = [int]$tok
+        if ($idx -lt 1 -or $idx -gt 20) { continue }
+        if (($i + 1) -ge $tokens.Count) { continue }
+
+        $combo = Normalize-KataCombo ([string]$tokens[$i + 1])
+        if ([string]::IsNullOrWhiteSpace($combo)) { continue }
+        $map[$idx] = $combo
+        $i++
+    }
+
+    return $map
+}
+
+function Parse-KataStatements {
+    param([string[]]$Paragraphs)
+
+    $items = @()
+    foreach ($line in $Paragraphs) {
+        if ([string]::IsNullOrWhiteSpace($line)) { continue }
+        $m = [regex]::Match($line, '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$')
+        if (-not $m.Success) { continue }
+        $marker = $m.Groups[1].Value
+        $text = $m.Groups[2].Value.Trim()
+        if ([string]::IsNullOrWhiteSpace($text)) { continue }
+        $items += [PSCustomObject]@{ Marker = $marker; Text = $text }
+    }
+    return $items
+}
+
 
 function Get-YearKeyFromString {
     param([string]$InputText)
@@ -220,6 +316,18 @@ function Extract-QuestionPayload {
     }
     $questionText = ($questionParagraphs -join "`n").Trim()
 
+    $comboChoiceMap = @{}
+    foreach ($line in $questionParagraphs) {
+        $map = Parse-ChoiceComboMap -Line $line
+        if ($map.Count -ge 2) {
+            $comboChoiceMap = $map
+            break
+        }
+    }
+
+    $kataStatements = Parse-KataStatements -Paragraphs $questionParagraphs
+    $isInvertedComboQuestion = $questionText -match '誤っているもの|妥当でないもの|適切でないもの|誤りであるもの|誤りはどれか'
+
     # options are li tags in the question block
     $optionTexts = @()
     $liMatches = [regex]::Matches($toiHtml, '(?is)<li[^>]*>(.*?)</li>')
@@ -230,11 +338,19 @@ function Extract-QuestionPayload {
         $optionTexts += $txt
     }
 
+    if ($optionTexts.Count -eq 0 -and $comboChoiceMap.Count -gt 0) {
+        $orderedKeys = @($comboChoiceMap.Keys | Sort-Object)
+        foreach ($k in $orderedKeys) {
+            $optionTexts += (Format-KataCombo $comboChoiceMap[$k])
+        }
+    }
+
     # answer block: multiple-choice pages use numeric answer, descriptive pages use text answer
     $answerNumber = 0
     $answerText = ""
     $acceptedAnswerTexts = @()
     $explanation = ""
+    $answerRawForCombo = ""
     $ansBlock = [regex]::Match($section, '(?is)<div\s+id="kaitou"[^>]*>(.*?)</div>')
     if ($ansBlock.Success) {
         $answerBlockHtml = $ansBlock.Groups[1].Value
@@ -254,6 +370,7 @@ function Extract-QuestionPayload {
             $answerRaw = Normalize-Digits $answerRaw
             $answerRaw = $answerRaw.Replace([string][char]0xFF1A, ':')
             $answerValue = if ($answerRaw.Contains(':')) { ($answerRaw -split ':', 2 | Select-Object -Last 1).Trim() } else { $answerRaw.Trim() }
+            $answerRawForCombo = $answerRaw
             $ansMatch = [regex]::Match($answerValue, '^\s*([0-9]+)')
             if ($ansMatch.Success) {
                 $answerNumber = [int]$ansMatch.Groups[1].Value
@@ -283,12 +400,29 @@ function Extract-QuestionPayload {
         }
     }
 
-    $answerType = 'choice'
-    if ($optionTexts.Count -eq 0) {
-        if ([string]::IsNullOrWhiteSpace($answerText)) {
-            throw "no options found: $QuestionUrl"
+    $answerCombo = Extract-KataComboFromText ($answerRawForCombo + " " + ($acceptedAnswerTexts -join " "))
+
+    if ($answerNumber -eq 0 -and $comboChoiceMap.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo)) {
+        $orderedKeys = @($comboChoiceMap.Keys | Sort-Object)
+        foreach ($k in $orderedKeys) {
+            if ((Normalize-KataCombo $comboChoiceMap[$k]) -eq $answerCombo) {
+                $answerNumber = [int]$k
+                break
+            }
         }
-        $answerType = 'text'
+    }
+
+    $answerType = 'choice'
+    $comboOxFallback = $false
+    if ($optionTexts.Count -eq 0) {
+        if ($kataStatements.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($answerCombo)) {
+            $comboOxFallback = $true
+            $answerType = 'combo_ox'
+        } elseif ([string]::IsNullOrWhiteSpace($answerText)) {
+            throw "no options found: $QuestionUrl"
+        } else {
+            $answerType = 'text'
+        }
     } elseif ($answerNumber -lt 1 -or $answerNumber -gt $optionTexts.Count) {
         # Some legacy pages intentionally provide non-numeric answers (e.g., "妥当な選択肢なし").
         if (-not [string]::IsNullOrWhiteSpace($answerText)) {
@@ -324,6 +458,10 @@ function Extract-QuestionPayload {
         AnswerText = $answerText
         AcceptedAnswerTexts = $acceptedAnswerTexts
         Explanation = $explanation
+        ComboOxFallback = $comboOxFallback
+        ComboAnswer = $answerCombo
+        ComboIsInverted = $isInvertedComboQuestion
+        CombinationStatements = $kataStatements
     }
 }
 
@@ -381,7 +519,22 @@ foreach ($yearItem in $targetYears) {
 
             $qid = "${prefix}-$($q.Number)"
             $limbs = @()
-            if ($payload.AnswerType -eq 'text') {
+            if ($payload.AnswerType -eq 'combo_ox') {
+                $combo = Normalize-KataCombo $payload.ComboAnswer
+                $isInverted = [bool]$payload.ComboIsInverted
+                for ($i = 0; $i -lt $payload.CombinationStatements.Count; $i++) {
+                    $st = $payload.CombinationStatements[$i]
+                    $marker = [string]$st.Marker
+                    $contains = $combo.Contains($marker)
+                    $isCorrect = if ($isInverted) { -not $contains } else { $contains }
+                    $limbs += [PSCustomObject]@{
+                        id = "${qid}-l$i"
+                        text = [string]$st.Text
+                        correct = [bool]$isCorrect
+                        explanation = $payload.Explanation
+                    }
+                }
+            } elseif ($payload.AnswerType -eq 'text') {
                 $limbs += [PSCustomObject]@{
                     id = "${qid}-l0"
                     text = 'Answer in free text.'
