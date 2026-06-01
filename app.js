@@ -2885,9 +2885,17 @@ function renderManage() {
   const yearTo   = document.getElementById('manage-year-to').value;
 
   const filtered = questions.filter(q => {
+    if (!q || typeof q !== 'object') return false;
+    const limbs = Array.isArray(q.limbs) ? q.limbs : [];
     if (subject && q.subject !== subject) return false;
     if (keyword) {
-      const hay = [q.questionText, q.subject, q.category, q.source, ...q.limbs.map(l => l.text + l.explanation)].join(' ').toLowerCase();
+      const hay = [
+        q.questionText,
+        q.subject,
+        q.category,
+        q.source,
+        ...limbs.map(l => `${l?.text || ''}${l?.explanation || ''}`)
+      ].join(' ').toLowerCase();
       if (!hay.includes(keyword)) return false;
     }
     if (yearFrom || yearTo) {
@@ -2909,7 +2917,8 @@ function renderManage() {
   }
 
   list.innerHTML = filtered.map(q => {
-    const limbsHtml = q.limbs.map((l, i) => {
+    const limbs = Array.isArray(q.limbs) ? q.limbs : [];
+    const limbsHtml = limbs.map((l, i) => {
       const rec   = getRecord(l.id);
       const total = rec.correct + rec.wrong;
       const rate  = total > 0 ? `${Math.round(rec.correct / total * 100)}%` : '-';
@@ -2948,7 +2957,7 @@ function renderManage() {
         </div>
       </div>
       ${q.questionText ? `<div class="manage-question-text">${esc(q.questionText)}</div>` : ''}
-      <div class="manage-limbs">${limbsHtml}</div>
+      <div class="manage-limbs">${limbsHtml || '<div class="manage-limb"><span class="limb-preview">肢データなし</span></div>'}</div>
     </div>`;
   }).join('');
 
