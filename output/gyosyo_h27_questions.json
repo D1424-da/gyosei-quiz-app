@@ -2087,25 +2087,25 @@
                       {
                           "id":  "H27-53-l0",
                           "text":  "令和3（2021）年10月1日現在の高齢者人口は、人口全体の4分の1を超えている。",
-                          "correct":  false,
+                          "correct":  true,
                           "explanation":  ""
                       },
                       {
                           "id":  "H27-53-l1",
                           "text":  "令和2（2020）年の国別高齢化率で、日本はイタリア、ドイツに次いで世界第3位、アジア圏では第1位である。",
-                          "correct":  true,
+                          "correct":  false,
                           "explanation":  ""
                       },
                       {
                           "id":  "H27-53-l2",
                           "text":  "令和3（2021）年の都道府県別の高齢者人口統計によれば、高齢者人口が最も多いのは東京都である。",
-                          "correct":  false,
+                          "correct":  true,
                           "explanation":  ""
                       },
                       {
                           "id":  "H27-53-l3",
                           "text":  "令和2（2020）年の一般刑法犯検挙人員中、年齢別分布で見ると20歳代のグループに次いで65歳以上のグループが第2位を占めている。",
-                          "correct":  true,
+                          "correct":  false,
                           "explanation":  ""
                       }
                   ],

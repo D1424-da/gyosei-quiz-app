@@ -765,7 +765,8 @@ foreach ($yearItem in $targetYears) {
             if ($payload.AnswerType -eq 'combo_ox' -or $useComboOx) {
                 $comboSource = if ($payload.AnswerType -eq 'combo_ox' -and -not [string]::IsNullOrWhiteSpace($payload.ComboAnswer)) { $payload.ComboAnswer } else { ([string]$payload.Options[$payload.AnswerNumber - 1]) }
                 $combo = Normalize-KataCombo $comboSource
-                $isInverted = [bool]$payload.ComboIsInverted
+                $invertKeywords = '誤っているもの|妥当でないもの|適切でないもの|誤りであるもの|誤りはどれか'
+                $isInverted = ([bool]$payload.ComboIsInverted) -or ($payload.QuestionText -match $invertKeywords)
                 if ($statementItems.Count -lt 4) { $statementItems = @() }
                 for ($i = 0; $i -lt $statementItems.Count; $i++) {
                     $st = $statementItems[$i]
