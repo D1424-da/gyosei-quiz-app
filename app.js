@@ -2041,110 +2041,111 @@ async function connectHandle(handle) {
 }
 
 async function initFileStorage() {
-  if (cloudPullInFlight) return cloudQuestionsLoadedUid === 'shared';
-  if (cloudQuestionsLoadedUid === 'shared' && !force) return true;
+  if (!FS_SUPPORTED) { updateFileStatus(); return; }
+  try {
+    const handle = await IDB.get('dataFileHandle');
     if (!handle) { updateFileStatus(); return; }
     const perm = await handle.queryPermission({ mode: 'readwrite' });
     if (perm === 'granted') {
       await connectHandle(handle);
-    const collectionRef = firebase.firestore().collection(QUESTION_BANK_COLLECTION);
-    const snap = await collectionRef.get();
+    } else {
+      pendingHandle = handle; // ユーザー操作が必要
     }
-    const remoteQuestions = [];
-    let remoteEditedAt = 0;
-    const orderedDocs = [...snap.docs].sort((a, b) => yearOrdinal(a.id) - yearOrdinal(b.id));
-    for (const docSnap of orderedDocs) {
-      const data = docSnap.data() || {};
-      remoteEditedAt = Math.max(remoteEditedAt, Number(data.updatedAtMs || 0));
-      const yearQuestions = Array.isArray(data.questions) ? data.questions : [];
-      if (yearQuestions.length > 0) {
-        remoteQuestions.push(...yearQuestions);
-      }
-    }
+  } catch (e) { console.warn('ファイルストレージ初期化:', e); }
+  updateFileStatus();
+}
 
-    if (remoteQuestions.length > 0) {
-      const applied = applySharedQuestionBank(remoteQuestions, remoteEditedAt || Date.now(), meta);
-      if (applied) {
-        markSyncSuccess('questions', remoteEditedAt || Date.now());
-      }
-      cloudQuestionsLoadedUid = 'shared';
-    } else if (isAdminUser() && canSyncQuestionsToCloud(questions)) {
-      const now = Date.now();
-      const grouped = groupQuestionsByYear(questions);
-      const batch = firebase.firestore().batch();
-      for (const [yearKey, yearQuestions] of grouped.entries()) {
-        batch.set(collectionRef.doc(yearKey), {
-          yearKey,
-          questions: yearQuestions,
-          updatedAtMs: now,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-      }
-      await batch.commit();
-      markSyncSuccess('questions', now);
-      cloudQuestionsLoadedUid = 'shared';
-    }
+function updateFileStatus() {
+  const statusEl   = document.getElementById('file-status');
+  if (!statusEl) return;
+  const reconnBar  = document.getElementById('file-reconnect-bar');
+  const btnNew     = document.getElementById('btn-new-data-file');
+  const btnOpen    = document.getElementById('btn-open-data-file');
+  const btnDisconn = document.getElementById('btn-disconnect-file');
+  const fsNote     = document.getElementById('fs-not-supported');
+  if (!FS_SUPPORTED) {
+    if (fsNote)     fsNote.classList.remove('hidden');
+    if (btnNew)     btnNew.disabled = true;
+    if (btnOpen)    btnOpen.disabled = true;
+    if (btnDisconn) btnDisconn.disabled = true;
+    return;
+  }
+  if (fileHandle) {
+    statusEl.textContent = `接続中: ${fileHandle.name}`;
+    statusEl.style.color = 'var(--success)';
+    if (reconnBar)  reconnBar.classList.add('hidden');
+    if (btnNew)     btnNew.disabled = true;
+    if (btnOpen)    btnOpen.disabled = true;
+    if (btnDisconn) btnDisconn.disabled = false;
+  } else if (pendingHandle) {
+    statusEl.textContent = `要再接続: ${pendingHandle.name}`;
+    statusEl.style.color = 'var(--warn)';
+    if (reconnBar)  reconnBar.classList.remove('hidden');
+    if (btnNew)     btnNew.disabled = false;
+    if (btnOpen)    btnOpen.disabled = false;
+    if (btnDisconn) btnDisconn.disabled = true;
+  } else {
+    statusEl.textContent = '未設定';
+    statusEl.style.color = 'var(--text-muted)';
+    if (reconnBar)  reconnBar.classList.add('hidden');
+    if (btnNew)     btnNew.disabled = false;
+    if (btnOpen)    btnOpen.disabled = false;
+    if (btnDisconn) btnDisconn.disabled = true;
+  }
+}
 
-    if (!window.__questionBankRealtimeSubscribed && typeof collectionRef.onSnapshot === 'function') {
-      window.__questionBankRealtimeSubscribed = true;
-      collectionRef.onSnapshot((collectionSnap) => {
-        try {
-          const liveRemoteQuestions = [];
-          let liveRemoteEditedAt = 0;
-          const orderedDocs = [...collectionSnap.docs].sort((a, b) => yearOrdinal(a.id) - yearOrdinal(b.id));
-          for (const docSnap of orderedDocs) {
-            const data = docSnap.data() || {};
-            liveRemoteEditedAt = Math.max(liveRemoteEditedAt, Number(data.updatedAtMs || 0));
-            if (Array.isArray(data.questions) && data.questions.length > 0) {
-              liveRemoteQuestions.push(...data.questions);
-            }
-          }
-          if (liveRemoteQuestions.length > 0) {
-            applySharedQuestionBank(liveRemoteQuestions, liveRemoteEditedAt || Date.now(), getQuestionsMeta());
-            markSyncSuccess('questions', liveRemoteEditedAt || Date.now());
-            cloudQuestionsLoadedUid = 'shared';
-          }
-        } catch (e) {
-          markSyncError('questions', e);
-        }
-      }, (e) => {
-        markSyncError('questions', e);
-        warnCloudError('共有問題バンクのリアルタイム同期エラー:', e);
-      });
-    }
+async function hashPassword(pw) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
-    return cloudQuestionsLoadedUid === 'shared';
+// Firebase authentication is handled by auth-module.js
+// Old local authentication functions removed (no longer needed with Firebase)
+// NOTE: Use Firebase Auth API instead: firebase.auth().signInWithEmailAndPassword(email, password)
+
+async function logout() {
+  stopStudyTimerAndAccumulate();
+  await flushRecordDeltasToCloudIfNeeded();
+  await flushRecordsToCloudIfNeeded();
+  await flushStudyCalendarToCloudIfNeeded();
+  await flushStudySessionSnapshotToCloudIfNeeded();
+  await flushStudyTimePendingToCloud();
+  stopCloudRealtimeSubscriptions();
+  currentUser = null;
+  sessionStorage.removeItem(KEY_SESSION_USER);
+  session = null;
+  questions = [];
+  records = {};
+  studyTime = { totalMs: 0, pendingDeltaMs: 0 };
+  sessionStudyStartedAt = 0;
+  cloudQuestionsLoadedUid = null;
+  cloudRecordsLoadedUid = null;
+  cloudStudyLoadedUid = null;
+  studyTimeBackend = 'auto';
+  calendarPendingSync = false;
   sessionSnapshotPendingSync = false;
   studySessionSnapshotCache = {};
-    warnCloudError('共有問題データ同期(取得):', e);
-    return false;
-  setMasteryCountBarVisible(false);
-  renderStudyGoalPanel();
+  pendingRecordDeltas = {};
   showLoginOverlay();
 }
 
 function showLoginOverlay() {
-  if (!isAdminUser()) return;
+  // Show login form by default (Firebase auth-module.js handles form switching)
+  const loginFormArea = document.getElementById('login-form-area');
   const registerFormArea = document.getElementById('register-form-area');
   const resetFormArea = document.getElementById('reset-form-area');
   
   if (loginFormArea) loginFormArea.classList.remove('hidden');
-    const grouped = groupQuestionsByYear(questions);
-    const db = firebase.firestore();
-    const batch = db.batch();
-    for (const [yearKey, yearQuestions] of grouped.entries()) {
-      batch.set(db.collection(QUESTION_BANK_COLLECTION).doc(yearKey), {
-        yearKey,
-        questions: yearQuestions,
-        updatedAtMs: now,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    }
-    await batch.commit();
+  if (registerFormArea) registerFormArea.classList.add('hidden');
+  if (resetFormArea) resetFormArea.classList.add('hidden');
+  
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login-overlay').classList.remove('hidden');
+  
   // Clear form fields if they exist (use Firebase form element IDs)
   const loginEmail = document.getElementById('login-email');
   const loginPassword = document.getElementById('login-password');
-    warnCloudError('共有問題データ同期(保存):', e);
+  const regEmail = document.getElementById('reg-email');
   const regPassword = document.getElementById('reg-password');
   const regPassword2 = document.getElementById('reg-password2');
   const resetEmail = document.getElementById('reset-email');
