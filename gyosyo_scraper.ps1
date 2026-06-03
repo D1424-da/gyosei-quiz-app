@@ -793,7 +793,7 @@ foreach ($yearItem in $targetYears) {
                 for ($i = 0; $i -lt $payload.Options.Count; $i++) {
                     $idx = $i + 1
                     $isSelected = ($idx -eq $payload.AnswerNumber)
-                    $isStatementTrue = if ($isInvertedComboQuestion) { -not $isSelected } else { $isSelected }
+                    $isStatementTrue = if ($payload.ComboIsInverted) { -not $isSelected } else { $isSelected }
                     $limbs += [PSCustomObject]@{
                         id = "${qid}-l$i"
                         text = $payload.Options[$i]
