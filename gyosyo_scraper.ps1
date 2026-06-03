@@ -17,6 +17,20 @@ $headers = @{
     "User-Agent" = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
 }
 
+# Detects "wrong/not-appropriate" question types using UTF-8 byte arrays to avoid
+# encoding issues with Japanese string literals in the script file.
+function Test-IsInvertedQuestion {
+    param([string]$Text)
+    if ([string]::IsNullOrEmpty($Text)) { return $false }
+    $utf8 = [System.Text.Encoding]::UTF8
+    $kw1 = $utf8.GetString([byte[]]@(0xE8,0xAA,0xA4,0xE3,0x81,0xA3,0xE3,0x81,0xA6,0xE3,0x81,0x84,0xE3,0x82,0x8B,0xE3,0x82,0x82,0xE3,0x81,0xAE)) # 誤っているもの
+    $kw2 = $utf8.GetString([byte[]]@(0xE5,0xA6,0xA5,0xE5,0xBD,0x93,0xE3,0x81,0xA7,0xE3,0x81,0xAA,0xE3,0x81,0x84,0xE3,0x82,0x82,0xE3,0x81,0xAE)) # 妥当でないもの
+    $kw3 = $utf8.GetString([byte[]]@(0xE9,0x81,0xA9,0xE5,0x88,0x87,0xE3,0x81,0xA7,0xE3,0x81,0xAA,0xE3,0x81,0x84,0xE3,0x82,0x82,0xE3,0x81,0xAE)) # 適切でないもの
+    $kw4 = $utf8.GetString([byte[]]@(0xE8,0xAA,0xA4,0xE3,0x82,0x8A,0xE3,0x81,0xA7,0xE3,0x81,0x82,0xE3,0x82,0x8B,0xE3,0x82,0x82,0xE3,0x81,0xAE)) # 誤りであるもの
+    $kw5 = $utf8.GetString([byte[]]@(0xE8,0xAA,0xA4,0xE3,0x82,0x8A,0xE3,0x81,0xAF,0xE3,0x81,0xA9,0xE3,0x82,0x8C,0xE3,0x81,0x8B))              # 誤りはどれか
+    return $Text.Contains($kw1) -or $Text.Contains($kw2) -or $Text.Contains($kw3) -or $Text.Contains($kw4) -or $Text.Contains($kw5)
+}
+
 function Get-Html {
     param([string]$Url)
     if (-not (Test-Path $CacheDir)) {
@@ -468,6 +482,17 @@ function Extract-QuestionPayload {
     $questionText = $questionText -replace '\\r\\n', "`n"
     $questionText = $questionText -replace '\\n', "`n"
 
+    # 問題文末尾の（注）以降の注記ブロックを除去する
+    $chuuFull = [string][char]0xFF08 + [char]0x6CE8 + [char]0xFF09   # （注）
+    $chuuHalf = '(' + [char]0x6CE8 + ')'                              # (注)
+    foreach ($chuuMarker in @($chuuFull, $chuuHalf)) {
+        $chuuIdx = $questionText.IndexOf($chuuMarker)
+        if ($chuuIdx -gt 0) {
+            $questionText = $questionText.Substring(0, $chuuIdx).TrimEnd()
+            break
+        }
+    }
+
     $comboChoiceMap = @{}
     foreach ($line in $questionParagraphs) {
         $map = Parse-ChoiceComboMap -Line $line
@@ -525,7 +550,7 @@ function Extract-QuestionPayload {
             }
         }
     }
-    $isInvertedComboQuestion = $questionText -match '誤っているもの|妥当でないもの|適切でないもの|誤りであるもの|誤りはどれか'
+    $isInvertedComboQuestion = Test-IsInvertedQuestion $questionText
 
     # options are li tags in the question block
     $optionTexts = @()
@@ -765,8 +790,7 @@ foreach ($yearItem in $targetYears) {
             if ($payload.AnswerType -eq 'combo_ox' -or $useComboOx) {
                 $comboSource = if ($payload.AnswerType -eq 'combo_ox' -and -not [string]::IsNullOrWhiteSpace($payload.ComboAnswer)) { $payload.ComboAnswer } else { ([string]$payload.Options[$payload.AnswerNumber - 1]) }
                 $combo = Normalize-KataCombo $comboSource
-                $invertKeywords = '誤っているもの|妥当でないもの|適切でないもの|誤りであるもの|誤りはどれか'
-                $isInverted = ([bool]$payload.ComboIsInverted) -or ($payload.QuestionText -match $invertKeywords)
+                $isInverted = ([bool]$payload.ComboIsInverted) -or (Test-IsInvertedQuestion $payload.QuestionText)
                 if ($statementItems.Count -lt 4) { $statementItems = @() }
                 for ($i = 0; $i -lt $statementItems.Count; $i++) {
                     $st = $statementItems[$i]
@@ -790,10 +814,11 @@ foreach ($yearItem in $targetYears) {
                     explanation = $payload.Explanation
                 }
             } else {
+                $isChoiceInverted = ([bool]$payload.ComboIsInverted) -or (Test-IsInvertedQuestion $payload.QuestionText)
                 for ($i = 0; $i -lt $payload.Options.Count; $i++) {
                     $idx = $i + 1
                     $isSelected = ($idx -eq $payload.AnswerNumber)
-                    $isStatementTrue = if ($payload.ComboIsInverted) { -not $isSelected } else { $isSelected }
+                    $isStatementTrue = if ($isChoiceInverted) { -not $isSelected } else { $isSelected }
                     $limbs += [PSCustomObject]@{
                         id = "${qid}-l$i"
                         text = $payload.Options[$i]
