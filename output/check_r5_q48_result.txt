@@ -1,0 +1,31 @@
+﻿"2" 個の引数を指定して "ReadAllText" を呼び出し中に例外が発生しました: "パス 'F
+:\髢狗匱荳ｭ繧｢繝励Μ\陦梧帆譖ｸ螢ｫ\output\gyosyo_r5_questions.json' の一部が見つ
+かりませんでした。"
+発生場所 F:\開発中アプリ\行政書士\check_r5_q48.ps1:1 文字:1
++ $text = [System.IO.File]::ReadAllText('F:\髢狗匱荳ｭ繧｢繝励Μ\陦梧帆譖ｸ螢ｫ\out
+put\g ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [], MethodInvocationException
+    + FullyQualifiedErrorId : DirectoryNotFoundException
+ 
+ConvertFrom-Json : 引数が null であるため、パラメーター 'InputObject' にバイン
+ドできません。
+発生場所 F:\開発中アプリ\行政書士\check_r5_q48.ps1:2 文字:17
++ $data = $text | ConvertFrom-Json
++                 ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [ConvertFrom-Json]、ParameterBin
+    dingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,M 
+   icrosoft.PowerShell.Commands.ConvertFromJsonCommand
+ 
+questionNumber 48 not found. Checking keys...
+Get-Member : Get-Member コマンドレットにオブジェクトを指定する必要があります。
+発生場所 F:\開発中アプリ\行政書士\check_r5_q48.ps1:7 文字:14
++     $first | Get-Member -MemberType NoteProperty | Select-Object Name
++              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : CloseError: (:) [Get-Member]、InvalidOperationExc
+    eption
+    + FullyQualifiedErrorId : NoObjectInGetMember,Microsoft.PowerShell.Command 
+   s.GetMemberCommand
+ 
+First item:
