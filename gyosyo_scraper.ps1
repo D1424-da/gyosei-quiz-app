@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$IndexUrl = "https://gyosyo.info/%E8%A1%8C%E6%94%BF%E6%9B%B8%E5%A3%AB%E3%81%AE%E9%81%8E%E5%8E%BB%E5%95%8F%E9%9B%86%EF%BC%88%E5%95%8F%E9%A1%8C%E3%81%A8%E8%A7%A3%E8%AA%AC%EF%BC%89/",
     [string]$OutDir = ".\\output",
     [string]$CacheDir = ".\cache\html",

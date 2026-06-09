@@ -22175,44 +22175,61 @@
   {
     "id": "H24-22",
     "subject": "行政書士",
-    "category": "地方自治法",
+    "category": "地方自治",
     "source": "平成24年・2012｜問22｜地方自治法",
     "questionText": "地方自治法およびその内容に関する次のア～オの記述のうち、誤っているものはいくつあるか。\nア 地方自治法の廃止は、日本国憲法の定めるところにより、住民投票を経て行わなければならない。\nイ 地方自治法は、その目的として、「地方公共団体の健全な発達を保障すること」をあげている。\nウ 地方自治法は、「地方自治の本旨」の内容につき、それが「住民自治」と「団体自治」とを意味すると規定している。\nエ 地方自治法には、地方財政法や地方公務員法等に優先して適用されるとの規定があり、地方自治の基本法としての位置づけが明確にされている。\nオ 現行の地方自治法は、第二次世界大戦前の(旧)地方自治法を抜本的に改正して制定されたものである。",
     "limbs": [
       {
         "id": "H24-22-l0",
         "text": "地方自治法の廃止は、日本国憲法の定めるところにより、住民投票を経て行わなければならない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-22-l1",
         "text": "地方自治法は、その目的として、「地方公共団体の健全な発達を保障すること」をあげている。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-22-l2",
         "text": "地方自治法は、「地方自治の本旨」の内容につき、それが「住民自治」と「団体自治」とを意味すると規定している。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-22-l3",
         "text": "地方自治法には、地方財政法や地方公務員法等に優先して適用されるとの規定があり、地方自治の基本法としての位置づけが明確にされている。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-22-l4",
         "text": "現行の地方自治法は、第二次世界大戦前の(旧)地方自治法を抜本的に改正して制定されたものである。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9024%e5%b9%b4%e3%83%bb2012%ef%bd%9c%e5%95%8f22%ef%bd%9c%e5%9c%b0%e6%96%b9%e8%87%aa%e6%b2%bb%e6%b3%95/",
-    "correctOption": 4,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H24-23",
@@ -22701,44 +22718,61 @@
   {
     "id": "H24-35",
     "subject": "行政書士",
-    "category": "民法：親族",
+    "category": "民法・親族",
     "source": "平成24年・2012｜問35｜相続",
     "questionText": "Ａは2010年10月1日に死亡したが、Ａには、Ｄに対する遺贈以外の遺言はなく、その死亡時に妻Ｂ、長男Ｃ、長女Ｄおよび次男Ｅがいた。この場合についての次のア～オの記述のうち、民法の規定および判例に照らし、誤っているものはいくつあるか。\nア Ｂが2010年10月1日にＡの死亡を知った場合において、Ｂは、その時から3ヶ月以内に単独で限定承認をすることができ、相続人全員で共同してする必要はない。\nイ Ｃの相続権が侵害された場合に、ＣがＡの死亡の時から5年以内に相続回復請求権を行使しないときは、同請求権は、時効によって消滅する。\nウ ＤがＡから遺贈を受けた場合には、Ａが死亡の時において有した財産の価額に遺贈の価額を加えたものを相続財産とみなし、Ｄの法定相続分の中からその遺贈の価額を控除した残額をもってＤの相続分とする。\nエ Ｅが、生前Ａに対して虐待をし、またはＡに重大な侮辱を加えた場合には、Ｅは、欠格者として相続人となることができない。\nオ Ａの死亡の時から5年以内にＢ、Ｃ、Ｄ、Ｅの協議により遺産分割がなされない場合には、Ｂ、Ｃ、Ｄ、Ｅは、全員で家庭裁判所に対し遺産分割を申し立てなければならない。",
     "limbs": [
       {
         "id": "H24-35-l0",
         "text": "Ｂが2010年10月1日にＡの死亡を知った場合において、Ｂは、その時から3ヶ月以内に単独で限定承認をすることができ、相続人全員で共同してする必要はない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-35-l1",
         "text": "Ｃの相続権が侵害された場合に、ＣがＡの死亡の時から5年以内に相続回復請求権を行使しないときは、同請求権は、時効によって消滅する。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-35-l2",
         "text": "ＤがＡから遺贈を受けた場合には、Ａが死亡の時において有した財産の価額に遺贈の価額を加えたものを相続財産とみなし、Ｄの法定相続分の中からその遺贈の価額を控除した残額をもってＤの相続分とする。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-35-l3",
         "text": "Ｅが、生前Ａに対して虐待をし、またはＡに重大な侮辱を加えた場合には、Ｅは、欠格者として相続人となることができない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H24-35-l4",
         "text": "Ａの死亡の時から5年以内にＢ、Ｃ、Ｄ、Ｅの協議により遺産分割がなされない場合には、Ｂ、Ｃ、Ｄ、Ｅは、全員で家庭裁判所に対し遺産分割を申し立てなければならない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9024%e5%b9%b4%e3%83%bb2012%ef%bd%9c%e5%95%8f35%ef%bd%9c%e7%9b%b8%e7%b6%9a/",
-    "correctOption": 5,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H24-36",
@@ -23757,44 +23791,55 @@
     "limbs": [
       {
         "id": "H25-6-l0",
-        "text": "会期の決定\n\nイ 議員の資格争訟\n\nウ 裁判官の弾劾\n\nエ 議院規則の制定\n\nオ 国政に関する調査",
+        "text": "会期の決定",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-6-l1",
-        "text": "会期の決定",
-        "correct": false,
+        "text": "議員の資格争訟",
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-6-l2",
-        "text": "議員の資格争訟",
+        "text": "裁判官の弾劾",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-6-l3",
-        "text": "裁判官の弾劾",
-        "correct": false,
+        "text": "議院規則の制定",
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-6-l4",
-        "text": "議院規則の制定",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H25-6-l5",
         "text": "国政に関する調査",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9025%e5%b9%b4%e3%83%bb2013%ef%bd%9c%e5%95%8f6%ef%bd%9c%e6%86%b2%e6%b3%95%e3%83%bb%e5%9b%bd%e4%bc%9a/",
-    "correctOption": 3,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H25-7",
@@ -24781,44 +24826,61 @@
   {
     "id": "H25-32",
     "subject": "行政書士",
-    "category": "民法：債権",
+    "category": "民法・債権",
     "source": "平成25年・2013｜問32｜民法",
     "questionText": "Ａは、Ｂ所有の甲土地上に乙建物を建てて保存登記をし、乙建物をＣが使用している。この場合に関する次のア～オの記述のうち、民法の規定および判例に照らし、誤っているものはいくつあるか。\nア Ａが、甲土地についての正当な権原に基づかないで乙建物を建て、Ｃとの間の建物賃貸借契約に基づいて乙建物をＣに使用させている場合に、乙建物建築後20年が経過したときには、Ｃは、Ｂに対して甲土地にかかるＡの取得時効を援用することができる。\nイ Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建て、Ｃとの間の建物賃貸借契約に基づいてＣに乙建物を使用させている場合、乙建物の所有権をＡから譲り受けたＢは、乙建物についての移転登記をしないときは、Ｃに対して乙建物の賃料を請求することはできない。\nウ Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建て、Ｃとの間の建物賃貸借契約に基づいてＣに乙建物を使用させている場合、Ｃは、Ａに無断で甲土地の賃料をＢに対して支払うことはできない。\nエ Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建てている場合、Ａが、Ｃに対して乙建物を売却するためには、特段の事情のない限り、甲土地にかかる賃借権を譲渡することについてＢの承諾を得る必要がある。\nオ Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建て、Ｃとの間の建物賃貸借契約に基づいてＣに乙建物を使用させている場合、Ａ・Ｂ間で当該土地賃貸借契約を合意解除したとしても、特段の事情のない限り、Ｂは、Ｃに対して建物の明渡しを求めることはできない。",
     "limbs": [
       {
         "id": "H25-32-l0",
         "text": "Ａが、甲土地についての正当な権原に基づかないで乙建物を建て、Ｃとの間の建物賃貸借契約に基づいて乙建物をＣに使用させている場合に、乙建物建築後20年が経過したときには、Ｃは、Ｂに対して甲土地にかかるＡの取得時効を援用することができる。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-32-l1",
         "text": "Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建て、Ｃとの間の建物賃貸借契約に基づいてＣに乙建物を使用させている場合、乙建物の所有権をＡから譲り受けたＢは、乙建物についての移転登記をしないときは、Ｃに対して乙建物の賃料を請求することはできない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-32-l2",
         "text": "Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建て、Ｃとの間の建物賃貸借契約に基づいてＣに乙建物を使用させている場合、Ｃは、Ａに無断で甲土地の賃料をＢに対して支払うことはできない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-32-l3",
         "text": "Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建てている場合、Ａが、Ｃに対して乙建物を売却するためには、特段の事情のない限り、甲土地にかかる賃借権を譲渡することについてＢの承諾を得る必要がある。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-32-l4",
         "text": "Ａが、Ｂとの間の土地賃貸借契約に基づいて乙建物を建て、Ｃとの間の建物賃貸借契約に基づいてＣに乙建物を使用させている場合、Ａ・Ｂ間で当該土地賃貸借契約を合意解除したとしても、特段の事情のない限り、Ｂは、Ｃに対して建物の明渡しを求めることはできない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9025%e5%b9%b4%e3%83%bb2013%ef%bd%9c%e5%95%8f32%ef%bd%9c%e6%b0%91%e6%b3%95/",
-    "correctOption": 2,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H25-33",
@@ -25063,36 +25125,53 @@
         "id": "H25-39-l0",
         "text": "取締役が自己または第三者のために会社と取引をしようとするときには、その取引について重要な事実を開示して、取締役会の承認を受けなければならない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-39-l1",
         "text": "取締役が会社から受ける報酬等の額、報酬等の具体的な算定方法または報酬等の具体的な内容については、定款に当該事項の定めがある場合を除き、会社の業務執行に係る事項として取締役会の決定で足り、株主総会の決議は要しない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-39-l2",
         "text": "会社が取締役の債務を保証することその他取締役以外の者との間において会社と当該取締役との利益が相反する取引をしようとするときには、その取引について重要な事実を開示して、取締役会の承認を受けなければならない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-39-l3",
         "text": "取締役が会社に対し、または会社が取締役に対して訴えを提起する場合には、監査役設置会社においては監査役が会社を代表し、監査役設置会社でない会社においては会計参与が会社を代表する。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-39-l4",
         "text": "取締役が自己または第三者のために会社の事業の部類に属する取引をしようとするときには、その取引について重要な事実を開示して、取締役会の承認を受けなければならない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9025%e5%b9%b4%e3%83%bb2013%ef%bd%9c%e5%95%8f39%ef%bd%9c%e4%bc%9a%e7%a4%be%e6%b3%95%e3%83%bb%e5%8f%96%e7%b7%a0%e5%bd%b9/",
-    "correctOption": 2,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H25-40",
@@ -25447,36 +25526,53 @@
         "id": "H25-51-l0",
         "text": "失業とは、就業の機会が得られていない状態のことを指し、統計的に失業者数は、労働力人口から就業者・就学者を差し引いた数として定義される。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-51-l1",
         "text": "有効求人倍率とは、職業安定所に登録された有効求人数を有効求職数で割った値をいい、この値が0.5を上回れば労働供給のほうが多く、反対に0.5を下回れば、労働需要のほうが多いことを意味する。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-51-l2",
         "text": "ワークシェアリングとは、労働者1人当りの労働時間を減らし、その分で他の労働者の雇用を維持したり、雇用を増やしたりすることをいう。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-51-l3",
         "text": "ニートとは、若年無気力症候群のことをいい、通勤も通学も家事もしていない者として定義される。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-51-l4",
         "text": "雇止めとは、期間の定めのある雇用契約において、使用者もしくは労働者の希望により契約が更新されないことをいう。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9025%e5%b9%b4%e3%83%bb2013%ef%bd%9c%e5%95%8f51%ef%bd%9c%e4%b8%80%e8%88%ac%e7%9f%a5%e8%ad%98%e3%83%bb%e7%a4%be%e4%bc%9a/",
-    "correctOption": 1,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H25-52",
@@ -25487,44 +25583,55 @@
     "limbs": [
       {
         "id": "H25-52-l0",
-        "text": "JR東日本\n\nイ 日本郵政\n\nウ 造幣局\n\nエ 国立公文書館\n\nオ 日本銀行",
+        "text": "JR東日本",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-52-l1",
-        "text": "JR東日本",
+        "text": "日本郵政",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-52-l2",
-        "text": "日本郵政",
-        "correct": false,
+        "text": "造幣局",
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-52-l3",
-        "text": "造幣局",
-        "correct": false,
+        "text": "国立公文書館",
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H25-52-l4",
-        "text": "国立公文書館",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H25-52-l5",
         "text": "日本銀行",
         "correct": false,
-        "explanation": ""
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
+        "explanation": "許可法人"
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9025%e5%b9%b4%e3%83%bb2013%ef%bd%9c%e5%95%8f52%ef%bd%9c%e4%b8%80%e8%88%ac%e7%9f%a5%e8%ad%98%e3%83%bb%e6%94%bf%e6%b2%bb/",
-    "correctOption": 2,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H25-53",
@@ -26137,36 +26244,53 @@
         "id": "H26-9-l0",
         "text": "文部省令が、登録の対象となる文化財的価値のある刀剣類の鑑定基準として、美術品として文化財的価値を有する日本刀に限る旨を定めたことは、銃砲刀剣類所持等取締法の趣旨に沿う合理性を有する鑑定基準を定めたものというべきであるから、これをもって法の委任の趣旨を逸脱する無効のものということはできない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-9-l1",
         "text": "教科書検定につき、文部大臣が、学校教育法88条 * の規定に基づいて、文部省令、文部省告示により、審査の内容及び基準並びに検定の施行細則である検定の手続を定めたことは、法律の委任を欠くとまではいえない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-9-l2",
         "text": "児童扶養手当法施行令が、父から認知された婚姻外懐胎児童を児童扶養手当の支給対象となる児童の範囲から除外したことは、社会観念上著しく妥当性を欠き、裁量権を濫用したものとは認められないので、児童扶養手当法の委任の範囲を逸脱した違法な規定と解することはできない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-9-l3",
         "text": "地方自治法施行令が、公職の候補者の資格に関する公職選挙法の定めを議員の解職請求代表者の資格について準用し、公務員について解職請求代表者となることを禁止していることは、地方自治法の委任に基づく政令の定めとして許される範囲を超えたものとはいえない。",
-        "correct": true,
+        "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-9-l4",
         "text": "国家公務員法が人事院規則に委任しているのは、公務員の職務の遂行の政治的中立性を損なうおそれが実質的に認められる政治的行為の行為類型を規制の対象として具体的に定めることであるから、国家公務員法が懲戒処分の対象と刑罰の対象とで殊更に区別することなく規制の対象となる政治的行為の定めを人事院規則に委任しているからといって、憲法上禁止される白紙委任に当たらない。",
         "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f9%ef%bd%9c%e8%a1%8c%e6%94%bf%e6%b3%95/",
-    "correctOption": 2,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H26-10",
@@ -26453,7 +26577,7 @@
   {
     "id": "H26-17",
     "subject": "行政書士",
-    "category": "行政事件訴訟法",
+    "category": "行政事件訴訟",
     "source": "平成26年・2014｜問17｜行政事件訴訟法",
     "questionText": "原告適格に関する最高裁判所の判決についての次のア～オの記述のうち、正しいものはいくつあるか。\nア 公衆浴場法の適正配置規定は、許可を受けた業者を濫立による経営の不合理化から守ろうとする意図まで有するものとはいえず、適正な許可制度の運用によって保護せらるべき業者の営業上の利益は単なる事実上の反射的利益にとどまるから、既存業者には、他業者への営業許可に対する取消訴訟の原告適格は認められない。\nイ 森林法の保安林指定処分は、一般的公益の保護を目的とする処分であるから、保安林の指定が違法に解除され、それによって自己の利益を侵害された者であっても、解除処分に対する取消しの訴えを提起する原告適格は認められない。\nウ 定期航空運送事業に対する規制に関する法体系は、飛行場周辺の環境上の利益を一般的公益として保護しようとするものにとどまるものであり、運送事業免許に係る路線を航行する航空機の騒音によって社会通念上著しい障害を受けることになる者であっても、免許取消訴訟を提起する原告適格は認められない。\nエ 自転車競技法に基づく場外車券発売施設の設置許可の処分要件として定められている位置基準は、用途の異なる建物の混在を防ぎ都市環境の秩序有る整備を図るという一般的公益を保護するにすぎないから、当該場外施設の設置・運営に伴い著しい業務上の支障が生ずるおそれがあると位置的に認められる区域に医療施設等を開設する者であっても、位置基準を根拠として当該設置許可の取消しを求める原告適格は認められない。\nオ （旧）地方鉄道法に定める料金改定の認可処分に関する規定の趣旨は、もっぱら、公共の利益を確保することにあるのであって、当該地方鉄道の利用者の個別的な権利利益を保護することにあるのではないから、通勤定期券を利用して当該鉄道で通勤する者であっても、当該認可処分によって自己の権利利益を侵害され又は必然的に侵害されるおそれのある者に当たるということはできず、認可処分の取消しを求める原告適格は認められない。",
     "limbs": [
@@ -26461,36 +26585,53 @@
         "id": "H26-17-l0",
         "text": "公衆浴場法の適正配置規定は、許可を受けた業者を濫立による経営の不合理化から守ろうとする意図まで有するものとはいえず、適正な許可制度の運用によって保護せらるべき業者の営業上の利益は単なる事実上の反射的利益にとどまるから、既存業者には、他業者への営業許可に対する取消訴訟の原告適格は認められない。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-17-l1",
         "text": "森林法の保安林指定処分は、一般的公益の保護を目的とする処分であるから、保安林の指定が違法に解除され、それによって自己の利益を侵害された者であっても、解除処分に対する取消しの訴えを提起する原告適格は認められない。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-17-l2",
         "text": "定期航空運送事業に対する規制に関する法体系は、飛行場周辺の環境上の利益を一般的公益として保護しようとするものにとどまるものであり、運送事業免許に係る路線を航行する航空機の騒音によって社会通念上著しい障害を受けることになる者であっても、免許取消訴訟を提起する原告適格は認められない。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-17-l3",
         "text": "自転車競技法に基づく場外車券発売施設の設置許可の処分要件として定められている位置基準は、用途の異なる建物の混在を防ぎ都市環境の秩序有る整備を図るという一般的公益を保護するにすぎないから、当該場外施設の設置・運営に伴い著しい業務上の支障が生ずるおそれがあると位置的に認められる区域に医療施設等を開設する者であっても、位置基準を根拠として当該設置許可の取消しを求める原告適格は認められない。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-17-l4",
         "text": "（旧）地方鉄道法に定める料金改定の認可処分に関する規定の趣旨は、もっぱら、公共の利益を確保することにあるのであって、当該地方鉄道の利用者の個別的な権利利益を保護することにあるのではないから、通勤定期券を利用して当該鉄道で通勤する者であっても、当該認可処分によって自己の権利利益を侵害され又は必然的に侵害されるおそれのある者に当たるということはできず、認可処分の取消しを求める原告適格は認められない。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f17%ef%bd%9c%e8%a1%8c%e6%94%bf%e4%ba%8b%e4%bb%b6%e8%a8%b4%e8%a8%9f%e6%b3%95/",
-    "correctOption": 1,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H26-18",
@@ -27125,44 +27266,61 @@
   {
     "id": "H26-33",
     "subject": "行政書士",
-    "category": "民法：債権",
+    "category": "民法・債権",
     "source": "平成26年・2014｜問33｜民法・弁済",
     "questionText": "取引上の社会通念に照らして受領権者としての外観を有する者に対するものに対する弁済等に関する次の記述のうち、民法の規定および判例に照らし、妥当なものはいくつあるか。\nア 他人名義の預金通帳と届出印を盗んだ者が銀行の窓口でその代理人と称して銀行から払戻しを受けた場合に、銀行が、そのことにつき善意であり、かつ過失がなければ、当該払戻しは、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。\nイ 他人名義の定期預金通帳と届出印を盗んだ者が銀行の窓口で本人と称して、定期預金契約時になされた定期預金の期限前払戻特約に基づいて払戻しを受けた場合に、銀行がそのことにつき善意であり、かつ過失がなければ、当該払戻しは、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。\nウ 他人名義の定期預金通帳と届出印を盗んだ者が銀行の窓口で本人と称して銀行から定期預金を担保に融資を受けたが、弁済がなされなかったため、銀行が当該貸金債権と定期預金債権とを相殺した場合に、銀行が、上記の事実につき善意であり、かつ過失がなければ、当該相殺は、取引上の社会通念に照らして受領権者としての外観を有する者への弁済の規定の類推適用により有効な相殺となる。\nエ 債権者の被用者が債権者に無断でその印鑑を利用して受取証書を偽造して弁済を受けた場合であっても、他の事情と総合して当該被用者が取引上の社会通念に照らして受領権者としての外観を有する者と認められるときには、債務者が、上記の事実につき善意であり、かつ過失がなければ、当該弁済は、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。\nオ 債権が二重に譲渡され、一方の譲受人が第三者対抗要件を先に具備した場合に、債務者が、その譲受人に対する弁済の有効性について疑いを抱いてもやむをえない事情があるなど、対抗要件で劣後する譲受人を真の債権者であると信ずるにつき相当の理由があるときに、その劣後する譲受人に弁済すれば、当該弁済は、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。",
     "limbs": [
       {
         "id": "H26-33-l0",
         "text": "他人名義の預金通帳と届出印を盗んだ者が銀行の窓口でその代理人と称して銀行から払戻しを受けた場合に、銀行が、そのことにつき善意であり、かつ過失がなければ、当該払戻しは、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-33-l1",
         "text": "他人名義の定期預金通帳と届出印を盗んだ者が銀行の窓口で本人と称して、定期預金契約時になされた定期預金の期限前払戻特約に基づいて払戻しを受けた場合に、銀行がそのことにつき善意であり、かつ過失がなければ、当該払戻しは、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-33-l2",
         "text": "他人名義の定期預金通帳と届出印を盗んだ者が銀行の窓口で本人と称して銀行から定期預金を担保に融資を受けたが、弁済がなされなかったため、銀行が当該貸金債権と定期預金債権とを相殺した場合に、銀行が、上記の事実につき善意であり、かつ過失がなければ、当該相殺は、取引上の社会通念に照らして受領権者としての外観を有する者への弁済の規定の類推適用により有効な相殺となる。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-33-l3",
         "text": "債権者の被用者が債権者に無断でその印鑑を利用して受取証書を偽造して弁済を受けた場合であっても、他の事情と総合して当該被用者が取引上の社会通念に照らして受領権者としての外観を有する者と認められるときには、債務者が、上記の事実につき善意であり、かつ過失がなければ、当該弁済は、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-33-l4",
         "text": "債権が二重に譲渡され、一方の譲受人が第三者対抗要件を先に具備した場合に、債務者が、その譲受人に対する弁済の有効性について疑いを抱いてもやむをえない事情があるなど、対抗要件で劣後する譲受人を真の債権者であると信ずるにつき相当の理由があるときに、その劣後する譲受人に弁済すれば、当該弁済は、取引上の社会通念に照らして受領権者としての外観を有する者への弁済として有効な弁済となる。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f33%ef%bd%9c%e6%b0%91%e6%b3%95%e3%83%bb%e5%bc%81%e6%b8%88/",
-    "correctOption": 5,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H26-34",
@@ -27732,37 +27890,54 @@
       {
         "id": "H26-50-l0",
         "text": "財政法の規定では、赤字国債の発行は認められていないが、特例法の制定により、政府は赤字国債の発行をしている。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-50-l1",
         "text": "東日本大震災以降、政府一般会計当初予算では、歳入の3割から4割以上が国債発行により調達されている。",
-        "correct": false,
+        "correct": true,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-50-l2",
         "text": "東日本大震災以降の新規国債発行額をみると、建設国債のほうが赤字国債よりも発行額が多い。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-50-l3",
         "text": "都道府県や市区町村が地方債発行により財源を調達する際には、当該地方議会の議決に加えて、国の許可を受けることが義務づけられている。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       },
       {
         "id": "H26-50-l4",
         "text": "地方自治体が発行する地方債は建設事業の財源調達に限られており、歳入を補填するための地方債は発行されていない。",
         "correct": false,
+        "options": [],
+        "correctText": "",
+        "acceptedAnswers": [],
+        "inlineOxWrong": [],
         "explanation": ""
       }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f50%ef%bd%9c%e4%b8%80%e8%88%ac%e7%9f%a5%e8%ad%98%e3%83%bb%e7%b5%8c%e6%b8%88/",
-    "correctOption": 2,
-    "answerType": "combo_ox"
+    ]
   },
   {
     "id": "H26-51",
@@ -33951,43 +34126,43 @@
   {
     "id": "H30-18",
     "subject": "行政書士",
-    "category": "行政事件訴訟法",
-    "source": "平成30年・2018｜問18｜行政事件訴訟法・民衆訴訟・機関訴訟",
-    "questionText": "行政事件訴訟法の定める民衆訴訟と機関訴訟に関する次の記述のうち、法令または最高裁判所の判例に照らし、妥当なものはどれか。",
+    "category": "行政手続法",
+    "source": "平成30年・2018｜問13｜行政手続法・意見公募手続",
+    "questionText": "行政手続法の定める意見公募手続に関する次の記述のうち、正しいものはどれか。",
     "limbs": [
       {
         "id": "H30-18-l0",
-        "text": "Ａ県知事に対してＡ県住民が県職員への条例上の根拠を欠く手当の支給の差止めを求める訴訟は、民衆訴訟である。",
-        "correct": true,
+        "text": "命令等制定機関は、他の行政機関が意見公募手続を実施して定めた命令等と実質的に同一の命令等を定めようとするときであっても、内容が完全に同一でなければ、命令等を定めるに当たって意見公募手続を実施しなければならない。",
+        "correct": false,
         "explanation": ""
       },
       {
         "id": "H30-18-l1",
-        "text": "Ａ県県営空港の騒音被害について、被害を受けたと主張する周辺住民がＡ県に対して集団で損害の賠償を求める訴訟は、民衆訴訟である。",
+        "text": "命令等制定機関は、意見公募手続を実施して命令等を定めるに当たり、意見提出期間内に当該命令等制定機関に対して提出された当該命令等の案についての意見について、整理または要約することなく、そのまま命令制定後に公示しなければならない。",
         "correct": false,
         "explanation": ""
       },
       {
         "id": "H30-18-l2",
-        "text": "Ａ県が保管する国の文書について、Ａ県知事が県情報公開条例に基づき公開の決定をした場合において、国が当該決定の取消しを求める訴訟は、機関訴訟である。",
-        "correct": false,
+        "text": "命令等制定機関は、命令等を定めようとする場合において、委員会等の議を経て命令等を定める場合であって、当該委員会等が意見公募手続に準じた手続を実施したときには、改めて意見公募手続を実施する必要はない。",
+        "correct": true,
         "explanation": ""
       },
       {
         "id": "H30-18-l3",
-        "text": "Ａ県議会議員の選挙において、その当選の効力に関し不服がある候補者がＡ県選挙管理委員会を被告として提起する訴訟は、機関訴訟である。",
+        "text": "行政庁が、不利益処分をするかどうか、またはどのような不利益処分をするかについて、その法令の定めに従って判断するために必要とされる処分基準を定めるに当たっては、意見公募手続を実施する必要はない。",
         "correct": false,
         "explanation": ""
       },
       {
         "id": "H30-18-l4",
-        "text": "Ａ県がＢ市立中学校で発生した学校事故にかかわる賠償金の全額を被害者に対して支払った後、Ｂ市が負担すべき分についてＡ県がＢ市に求償する訴訟は、機関訴訟である。",
+        "text": "行政指導指針は、行政庁が任意に設定するものであり、また法的な拘束力を有するものではないため、行政指導指針を定めるに当たっては、意見公募手続を実施する必要はない。",
         "correct": false,
         "explanation": ""
       }
     ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9030%e5%b9%b4%e3%83%bb2018%ef%bd%9c%e5%95%8f18%ef%bd%9c%e8%a1%8c%e6%94%bf%e4%ba%8b%e4%bb%b6%e8%a8%b4%e8%a8%9f%e6%b3%95%e3%83%bb%e6%b0%91%e8%a1%86%e8%a8%b4%e8%a8%9f%e3%83%bb%e6%a9%9f/",
-    "correctOption": 1,
+    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9030%e5%b9%b4%e3%83%bb2019%ef%bd%9c%e5%95%8f18%ef%bd%9c%e8%a1%8c%e6%94%bf%e6%89%8b%e7%b6%9a%e6%b3%95%e3%83%bb%e6%84%8f%e8%a6%8b%e5%85%ac%e5%8b%9f%e6%89%8b%e7%b6%9a/",
+    "correctOption": 3,
     "answerType": "choice"
   },
   {
