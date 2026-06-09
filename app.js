@@ -81,12 +81,22 @@ const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 const useLocalStorage = true;
 const volatileStorage = new Map();
 
+// このアプリ専用の localStorage 名前空間。
+// GitHub Pages では同一オリジン（例: d1424-da.github.io）配下の全プロジェクトが
+// localStorage を共有するため、汎用キー（limb_questions など）のままだと
+// 別アプリ（chisatsu-exam-practice 等）とデータが混ざり、他アプリの問題を
+// 読み込んでしまう。キーにアプリ固有プレフィックスを付けて完全に分離する。
+const APP_STORAGE_NAMESPACE = 'gyosei';
+function nsKey(key) {
+  return `${APP_STORAGE_NAMESPACE}::${key}`;
+}
+
 function storageGetItem(key) {
   if (!useLocalStorage) {
     return volatileStorage.has(key) ? volatileStorage.get(key) : null;
   }
   try {
-    return window.localStorage.getItem(key);
+    return window.localStorage.getItem(nsKey(key));
   } catch {
     return null;
   }
@@ -98,7 +108,7 @@ function storageSetItem(key, value) {
     return;
   }
   try {
-    window.localStorage.setItem(key, value);
+    window.localStorage.setItem(nsKey(key), value);
   } catch {
     // ignore
   }
@@ -110,7 +120,7 @@ function storageRemoveItem(key) {
     return;
   }
   try {
-    window.localStorage.removeItem(key);
+    window.localStorage.removeItem(nsKey(key));
   } catch {
     // ignore
   }
@@ -2112,7 +2122,7 @@ async function logout() {
   await flushStudyTimePendingToCloud();
   stopCloudRealtimeSubscriptions();
   currentUser = null;
-  sessionStorage.removeItem(KEY_SESSION_USER);
+  sessionStorage.removeItem(nsKey(KEY_SESSION_USER));
   session = null;
   questions = [];
   records = {};
