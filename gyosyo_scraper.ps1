@@ -330,6 +330,59 @@ function Test-ComboOptionText {
     return ($compact -match '^[アイウエオカキクケコ]{2,5}$')
 }
 
+# 「その正誤を正しく示す組合せはどれか」型の選択肢テキストから
+# マーカー別の ○/× (true/false) マップを抽出する。
+# 例: "ア○ イ× ウ○ エ×" → { ア=true, イ=false, ウ=true, エ=false }
+# 抽出できなければ空の hashtable を返す。
+function Parse-SogoOptionText {
+    param([string]$OptionText)
+    $map = @{}
+    if ([string]::IsNullOrWhiteSpace($OptionText)) { return $map }
+
+    $utf8 = [System.Text.Encoding]::UTF8
+    $maruStr  = $utf8.GetString([byte[]]@(0xE2, 0x97, 0x8B))   # ○ U+25CB
+    $batsuStr = $utf8.GetString([byte[]]@(0xC3, 0x97))          # × U+00D7
+    $batsu2Str = $utf8.GetString([byte[]]@(0xE2, 0x9C, 0x95))  # ✕ U+2715
+    $seStr    = $utf8.GetString([byte[]]@(0xE6, 0xAD, 0xA3))   # 正
+    $goStr    = $utf8.GetString([byte[]]@(0xE8, 0xAA, 0xA4))   # 誤
+
+    $markers = @(
+        [char]0x30A2, [char]0x30A4, [char]0x30A6, [char]0x30A8, [char]0x30AA,
+        [char]0x30AB, [char]0x30AD, [char]0x30AF, [char]0x30B1, [char]0x30B3
+    )
+    # マーカーと値の間に許容する区切り文字
+    $sepCharsArr = @([char]0x20, [char]0x09, [char]0x3000, [char]0x2D, [char]0xFF1A,
+                     [char]0x3A,  [char]0x20, [char]0xFF0E, [char]0x2E)
+
+    foreach ($m in $markers) {
+        $marker = [string]$m
+        $idx = $OptionText.IndexOf($marker)
+        if ($idx -lt 0) { continue }
+
+        # マーカーの直後から区切り文字をスキップして判定値を探す
+        $pos = $idx + 1
+        while ($pos -lt $OptionText.Length) {
+            $ch = $OptionText[$pos]
+            if ($sepCharsArr -contains $ch) { $pos++; continue }
+            break
+        }
+        if ($pos -ge $OptionText.Length) { continue }
+
+        $rest = $OptionText.Substring($pos)
+        if ($rest.StartsWith($maruStr) -or $rest.StartsWith('○')) {
+            $map[$marker] = $true
+        } elseif ($rest.StartsWith($batsuStr) -or $rest.StartsWith($batsu2Str) -or
+                  $rest.StartsWith([string][char]0x00D7) -or $rest.StartsWith('x') -or $rest.StartsWith('X')) {
+            $map[$marker] = $false
+        } elseif ($rest.StartsWith($seStr)) {
+            $map[$marker] = $true
+        } elseif ($rest.StartsWith($goStr)) {
+            $map[$marker] = $false
+        }
+    }
+    return $map
+}
+
 
 function Get-YearKeyFromString {
     param([string]$InputText)
@@ -785,26 +838,77 @@ foreach ($yearItem in $targetYears) {
                 }
             }
 
-            $useComboOx = ($payload.AnswerType -eq 'choice' -and $statementItems.Count -ge 4 -and $payload.AnswerNumber -gt 0)
+            # combo_ox への昇格条件:
+            #   1. 元々 combo_ox か、または AnswerType=choice でカタカナ文が4つ以上ある
+            #   2. かつ、正解選択肢テキストがカタカナコンボ形式（ア・イ・ウ など）であること
+            # 条件 2 を加えることで「いくつあるか」「年代順」「略語の組合せ」等を
+            # 誤って combo_ox と判定するのを防ぐ。
+            $selectedOptionText = if ($payload.AnswerNumber -ge 1 -and $payload.AnswerNumber -le $payload.Options.Count) {
+                [string]$payload.Options[$payload.AnswerNumber - 1]
+            } else { "" }
+            $useComboOx = ($payload.AnswerType -eq 'choice' -and $statementItems.Count -ge 4 -and $payload.AnswerNumber -gt 0 -and (Test-ComboOptionText $selectedOptionText))
+
+            $resolvedAnswerType = $payload.AnswerType
 
             if ($payload.AnswerType -eq 'combo_ox' -or $useComboOx) {
                 $comboSource = if ($payload.AnswerType -eq 'combo_ox' -and -not [string]::IsNullOrWhiteSpace($payload.ComboAnswer)) { $payload.ComboAnswer } else { ([string]$payload.Options[$payload.AnswerNumber - 1]) }
                 $combo = Normalize-KataCombo $comboSource
                 $isInverted = ([bool]$payload.ComboIsInverted) -or (Test-IsInvertedQuestion $payload.QuestionText)
                 if ($statementItems.Count -lt 4) { $statementItems = @() }
-                for ($i = 0; $i -lt $statementItems.Count; $i++) {
-                    $st = $statementItems[$i]
-                    $marker = [string]$st.Marker
-                    $contains = $combo.Contains($marker)
-                    $isCorrect = if ($isInverted) { -not $contains } else { $contains }
-                    $limbs += [PSCustomObject]@{
-                        id = "${qid}-l$i"
-                        text = [string]$st.Text
-                        correct = [bool]$isCorrect
-                        explanation = $payload.Explanation
+
+                # 「その正誤を正しく示す組合せ」型: 選択肢に ○/× が含まれるか試みる
+                $sogoMap = Parse-SogoOptionText $comboSource
+
+                # 全マーカーがコンボに含まれる場合は「年代順」「組合せ」等の非標準型
+                # ただし sogoMap がある場合は正誤を正しく示す組合せ型なのでそちらで処理
+                $allMarkersPresent = ($statementItems.Count -gt 0) -and ($combo.Length -ge $statementItems.Count)
+
+                if ($sogoMap.Count -ge 2) {
+                    # 正誤を正しく示す組合せ型 — 各マーカーの ○/× から直接正誤を決定
+                    $resolvedAnswerType = 'combo_ox'
+                    for ($i = 0; $i -lt $statementItems.Count; $i++) {
+                        $marker = [string]$statementItems[$i].Marker
+                        $isCorrect = if ($sogoMap.ContainsKey($marker)) { [bool]$sogoMap[$marker] } else { $false }
+                        if ($isInverted) { $isCorrect = -not $isCorrect }
+                        $limbs += [PSCustomObject]@{
+                            id = "${qid}-l$i"
+                            text = [string]$statementItems[$i].Text
+                            correct = [bool]$isCorrect
+                            explanation = $payload.Explanation
+                        }
+                    }
+                } elseif (-not [string]::IsNullOrWhiteSpace($combo) -and -not $allMarkersPresent) {
+                    # 通常のカタカナコンボ型（正解コンボが全マーカーの真部分集合）
+                    $resolvedAnswerType = 'combo_ox'
+                    for ($i = 0; $i -lt $statementItems.Count; $i++) {
+                        $marker = [string]$statementItems[$i].Marker
+                        $contains = $combo.Contains($marker)
+                        $isCorrect = if ($isInverted) { -not $contains } else { $contains }
+                        $limbs += [PSCustomObject]@{
+                            id = "${qid}-l$i"
+                            text = [string]$statementItems[$i].Text
+                            correct = [bool]$isCorrect
+                            explanation = $payload.Explanation
+                        }
+                    }
+                } else {
+                    # コンボ抽出失敗 or 全マーカー一致（年代順・略語組合せ等）→ choice として処理
+                    $resolvedAnswerType = 'choice'
+                    $isChoiceInverted = ([bool]$payload.ComboIsInverted) -or (Test-IsInvertedQuestion $payload.QuestionText)
+                    for ($i = 0; $i -lt $payload.Options.Count; $i++) {
+                        $idx2 = $i + 1
+                        $isSelected = ($idx2 -eq $payload.AnswerNumber)
+                        $isStatementTrue = if ($isChoiceInverted) { -not $isSelected } else { $isSelected }
+                        $limbs += [PSCustomObject]@{
+                            id = "${qid}-l$i"
+                            text = $payload.Options[$i]
+                            correct = [bool]$isStatementTrue
+                            explanation = $payload.Explanation
+                        }
                     }
                 }
             } elseif ($payload.AnswerType -eq 'text') {
+                $resolvedAnswerType = 'text'
                 $limbs += [PSCustomObject]@{
                     id = "${qid}-l0"
                     text = 'Answer in free text.'
@@ -814,10 +918,11 @@ foreach ($yearItem in $targetYears) {
                     explanation = $payload.Explanation
                 }
             } else {
+                $resolvedAnswerType = 'choice'
                 $isChoiceInverted = ([bool]$payload.ComboIsInverted) -or (Test-IsInvertedQuestion $payload.QuestionText)
                 for ($i = 0; $i -lt $payload.Options.Count; $i++) {
-                    $idx = $i + 1
-                    $isSelected = ($idx -eq $payload.AnswerNumber)
+                    $idx2 = $i + 1
+                    $isSelected = ($idx2 -eq $payload.AnswerNumber)
                     $isStatementTrue = if ($isChoiceInverted) { -not $isSelected } else { $isSelected }
                     $limbs += [PSCustomObject]@{
                         id = "${qid}-l$i"
@@ -837,7 +942,7 @@ foreach ($yearItem in $targetYears) {
                 limbs = $limbs
                 questionUrl = $q.Url
                 correctOption = $payload.AnswerNumber
-                answerType = if ($payload.AnswerType -eq 'combo_ox' -or $useComboOx) { 'combo_ox' } else { $payload.AnswerType }
+                answerType = $resolvedAnswerType
             }
             $yearQuestions += $questionObject
         } catch {
