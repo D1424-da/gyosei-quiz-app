@@ -330,6 +330,114 @@ function Test-ComboOptionText {
     return ($compact -match '^[アイウエオカキクケコ]{2,5}$')
 }
 
+# 問題文からカタカナ肢（ア．イ．ウ．…）を「順序どおり」に抽出する。
+# 行単位ではなく文字列全体を走査するため、「…有する。イ．…」のように
+# 改行なしで連続するマーカーも正しく分割できる。
+# 期待マーカー列 ア,イ,ウ,… を前から順に探し、各マーカー直後（区切り文字含む）から
+# 次に見つかったマーカーの直前までを肢テキストとする。
+function Extract-OrderedKataStatements {
+    param([string]$Text)
+    $items = @()
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $items }
+
+    $allMarkers = @(
+        [char]0x30A2, [char]0x30A4, [char]0x30A6, [char]0x30A8, [char]0x30AA,  # ア イ ウ エ オ
+        [char]0x30AB, [char]0x30AD, [char]0x30AF, [char]0x30B1, [char]0x30B3   # カ キ ク ケ コ
+    )
+    # リード文の「次のア～オ」「ア～エ」等で宣言された肢範囲を検出し、
+    # 抽出対象マーカーを限定する（肢本文中の無関係なカタカナの過抽出を防ぐ）。
+    $markers = $allMarkers
+    $rangeRe = '([アイウエオカキクケコ])\s*[～〜~]\s*([アイウエオカキクケコ])'
+    $head = ($Text -split '\r?\n')[0]
+    $rangeMatch = [regex]::Match($head, $rangeRe)
+    if (-not $rangeMatch.Success -and $Text.Length -gt 0) {
+        $headLen = [Math]::Min(120, $Text.Length)
+        $rangeMatch = [regex]::Match($Text.Substring(0, $headLen), $rangeRe)
+    }
+    if ($rangeMatch.Success) {
+        $ia = [Array]::IndexOf($allMarkers, [char]$rangeMatch.Groups[1].Value[0])
+        $ib = [Array]::IndexOf($allMarkers, [char]$rangeMatch.Groups[2].Value[0])
+        if ($ia -ge 0 -and $ib -ge $ia) {
+            $markers = $allMarkers[$ia..$ib]
+        }
+    }
+    # マーカー直後に来る区切り文字（これが続く場合のみ肢ラベルと見なす）
+    $sepClass = '[\s　\.．、]'
+
+    # 各マーカーのラベル位置を順番に検出する
+    $positions = New-Object System.Collections.ArrayList
+    $searchFrom = 0
+    foreach ($m in $markers) {
+        $mk = [string]$m
+        $found = -1
+        $p = $searchFrom
+        while ($p -lt $Text.Length) {
+            $hit = $Text.IndexOf($mk, $p)
+            if ($hit -lt 0) { break }
+            $after = $hit + 1
+            if ($after -lt $Text.Length -and [regex]::IsMatch([string]$Text[$after], $sepClass)) {
+                $found = $hit
+                break
+            }
+            $p = $hit + 1
+        }
+        if ($found -ge 0) {
+            [void]$positions.Add([PSCustomObject]@{ Marker = $mk; LabelStart = $found })
+            $searchFrom = $found + 1
+        }
+        # 見つからないマーカーはスキップして次のマーカーを探す
+    }
+
+    if ($positions.Count -lt 2) { return $items }
+
+    for ($i = 0; $i -lt $positions.Count; $i++) {
+        $labelStart = [int]$positions[$i].LabelStart
+        # マーカー＋連続する区切り文字をスキップした位置が本文の開始
+        $ts = $labelStart + 1
+        while ($ts -lt $Text.Length -and [regex]::IsMatch([string]$Text[$ts], $sepClass)) { $ts++ }
+        $end = if ($i + 1 -lt $positions.Count) { [int]$positions[$i + 1].LabelStart } else { $Text.Length }
+        if ($end -le $ts) { continue }
+        $stmt = $Text.Substring($ts, $end - $ts).Trim()
+        if (-not [string]::IsNullOrWhiteSpace($stmt)) {
+            $items += [PSCustomObject]@{ Marker = $positions[$i].Marker; Text = $stmt }
+        }
+    }
+    return $items
+}
+
+# 問題文の「リード文」（最初のカタカナ肢ラベルより前の部分）だけを返す。
+# combo_ox では各肢を個別に出題するため、questionText に肢本文を残さない。
+function Get-LeadText {
+    param([string]$Text)
+    if ([string]::IsNullOrWhiteSpace($Text)) { return $Text }
+
+    $markers = @(
+        [char]0x30A2, [char]0x30A4, [char]0x30A6, [char]0x30A8, [char]0x30AA,
+        [char]0x30AB, [char]0x30AD, [char]0x30AF, [char]0x30B1, [char]0x30B3
+    )
+    $sepClass = '[\s　\.．、]'
+
+    $firstIdx = -1
+    foreach ($m in $markers) {
+        $mk = [string]$m
+        $p = 0
+        while ($p -lt $Text.Length) {
+            $hit = $Text.IndexOf($mk, $p)
+            if ($hit -lt 0) { break }
+            $after = $hit + 1
+            if ($after -lt $Text.Length -and [regex]::IsMatch([string]$Text[$after], $sepClass)) {
+                if ($firstIdx -lt 0 -or $hit -lt $firstIdx) { $firstIdx = $hit }
+                break
+            }
+            $p = $hit + 1
+        }
+    }
+    if ($firstIdx -gt 0) {
+        return $Text.Substring(0, $firstIdx).TrimEnd()
+    }
+    return $Text.TrimEnd()
+}
+
 # 「その正誤を正しく示す組合せはどれか」型の選択肢テキストから
 # マーカー別の ○/× (true/false) マップを抽出する。
 # 例: "ア○ イ× ウ○ エ×" → { ア=true, イ=false, ウ=true, エ=false }
@@ -812,29 +920,38 @@ foreach ($yearItem in $targetYears) {
             $qid = "${prefix}-$($q.Number)"
             $limbs = @()
             $comboOptionList = ($payload.Options.Count -gt 0) -and (@($payload.Options | Where-Object { Test-ComboOptionText $_ }).Count -eq $payload.Options.Count)
-            $statementItems = @($payload.CombinationStatements)
-            if ($statementItems.Count -lt 4 -and -not [string]::IsNullOrWhiteSpace($payload.QuestionText)) {
-                $statementItems = @()
-                $statementPatterns = @(
-                    '(?ms)(?:^|\n)\s*([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:\n\s*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)',
-                    '(?ms)([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:[\s　]*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)'
-                )
-                foreach ($statementPattern in $statementPatterns) {
-                    $statementMatches = [regex]::Matches($payload.QuestionText, $statementPattern)
-                    foreach ($statementMatch in $statementMatches) {
-                        $statementItems += [PSCustomObject]@{
-                            Marker = $statementMatch.Groups[1].Value
-                            Text = $statementMatch.Groups[2].Value.Trim()
+            # 肢抽出は順序付き走査を最優先する（改行なしで連続するマーカーも分割可能）。
+            $statementItems = @(Extract-OrderedKataStatements $payload.QuestionText)
+            # 順序付き抽出が不十分なら従来ロジックにフォールバックする。
+            if ($statementItems.Count -lt 4) {
+                $fallbackItems = @($payload.CombinationStatements)
+                if ($fallbackItems.Count -lt 4 -and -not [string]::IsNullOrWhiteSpace($payload.QuestionText)) {
+                    $fallbackItems = @()
+                    $statementPatterns = @(
+                        '(?ms)(?:^|\n)\s*([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:\n\s*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)',
+                        '(?ms)([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:[\s　]*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)'
+                    )
+                    foreach ($statementPattern in $statementPatterns) {
+                        $statementMatches = [regex]::Matches($payload.QuestionText, $statementPattern)
+                        foreach ($statementMatch in $statementMatches) {
+                            $fallbackItems += [PSCustomObject]@{
+                                Marker = $statementMatch.Groups[1].Value
+                                Text = $statementMatch.Groups[2].Value.Trim()
+                            }
+                        }
+                        if ($fallbackItems.Count -ge 4) { break }
+                    }
+                    if ($fallbackItems.Count -lt 4) {
+                        foreach ($line in @($payload.QuestionText -split '\r?\n')) {
+                            if ($line -match '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$') {
+                                $fallbackItems += [PSCustomObject]@{ Marker = $Matches[1]; Text = $Matches[2].Trim() }
+                            }
                         }
                     }
-                    if ($statementItems.Count -ge 4) { break }
                 }
-                if ($statementItems.Count -lt 4) {
-                    foreach ($line in @($payload.QuestionText -split '\r?\n')) {
-                        if ($line -match '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$') {
-                            $statementItems += [PSCustomObject]@{ Marker = $Matches[1]; Text = $Matches[2].Trim() }
-                        }
-                    }
+                # より多くの肢を抽出できた方を採用する。
+                if ($fallbackItems.Count -gt $statementItems.Count) {
+                    $statementItems = $fallbackItems
                 }
             }
 
@@ -933,12 +1050,21 @@ foreach ($yearItem in $targetYears) {
                 }
             }
 
+            # combo_ox では各肢を個別に出題するため、questionText はリード文のみにする
+            # （肢本文 ア．イ．… を二重に含めない）。それ以外（choice・text・
+            # 「いくつあるか」等）は ア～オ が判断対象の本文なのでそのまま保持する。
+            $finalQuestionText = if ($resolvedAnswerType -eq 'combo_ox') {
+                Get-LeadText $payload.QuestionText
+            } else {
+                $payload.QuestionText
+            }
+
             $questionObject = [PSCustomObject]@{
                 id = $qid
                 subject = ([string]([char]0x884C) + [char]0x653F + [char]0x66F8 + [char]0x58EB)
                 category = $payload.Category
                 source = $payload.Title
-                questionText = $payload.QuestionText
+                questionText = $finalQuestionText
                 limbs = $limbs
                 questionUrl = $q.Url
                 correctOption = $payload.AnswerNumber
