@@ -2389,14 +2389,14 @@ function getAllLimbs(filterSubject = '', filterCategory = '', splitInlineForStat
               questionId: q.id,
               subject: q.subject,
               category: q.category,
-              questionText: getLeadText(q.questionText),
+              questionText: getDisplayQuestionText(q),
               source: q.source,
             });
           }
           continue;
         }
       }
-      limbs.push({ ...limb, questionId: q.id, subject: q.subject, category: q.category, questionText: getLeadText(q.questionText), source: q.source });
+      limbs.push({ ...limb, questionId: q.id, subject: q.subject, category: q.category, questionText: getDisplayQuestionText(q), source: q.source });
     }
   }
   return limbs;
@@ -3599,6 +3599,15 @@ function getLeadText(text) {
   const m = text.match(/[\u30A2\u30A4\u30A6\u30A8\u30AA\u30AB\u30AD\u30AF\u30B1\u30B3][\uff0e.]/);
   if (m) return text.substring(0, m.index).trimEnd();
   return text.trimEnd();
+}
+
+// 出題時に表示する問題文を返す。
+// combo_ox（組合せ型）は各肢を個別に出題するため、リード文のみに切り詰める
+// （肢本文 ア．イ．… の二重表示を防ぐ）。それ以外の type（choice の「いくつあるか」
+// 「年代順」「組合せ」や text）は ア～オ が判断対象の本文なのでそのまま表示する。
+function getDisplayQuestionText(q) {
+  const text = q?.questionText || '';
+  return q?.answerType === 'combo_ox' ? getLeadText(text) : text;
 }
 
 // ── XSSエスケープ ────────────────────────────────────────────
