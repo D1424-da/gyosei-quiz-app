@@ -917,7 +917,19 @@ foreach ($yearItem in $targetYears) {
             $qHtml = Get-Html -Url $q.Url
             $payload = Extract-QuestionPayload -Html $qHtml -QuestionUrl $q.Url -FallbackCategory $q.Category
 
-            $qid = "${prefix}-$($q.Number)"
+            # 採番はページタイトルの「問N」を優先する。年度ページのリンクURLが
+            # 別問題を指している場合（例: 問13ページのURLが問18を指す）でも、
+            # ページ自身が宣言する問番号で採番するため、IDの重複・取り違えを防ぐ。
+            # タイトルから問番号を取得できない場合のみURL由来の番号にフォールバックする。
+            $questionNumber = if ($payload.QuestionNo -ge 1 -and $payload.QuestionNo -le 100) {
+                [int]$payload.QuestionNo
+            } else {
+                [int]$q.Number
+            }
+            if ($payload.QuestionNo -ge 1 -and [int]$payload.QuestionNo -ne [int]$q.Number) {
+                Write-Warning ("問番号の不一致: URL={0} タイトル={1} -> タイトルを採用 ({2})" -f $q.Number, $payload.QuestionNo, $q.Url)
+            }
+            $qid = "${prefix}-$questionNumber"
             $limbs = @()
             $comboOptionList = ($payload.Options.Count -gt 0) -and (@($payload.Options | Where-Object { Test-ComboOptionText $_ }).Count -eq $payload.Options.Count)
             # 肢抽出は順序付き走査を最優先する（改行なしで連続するマーカーも分割可能）。
