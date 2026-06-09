@@ -934,10 +934,11 @@ foreach ($yearItem in $targetYears) {
             $comboOptionList = ($payload.Options.Count -gt 0) -and (@($payload.Options | Where-Object { Test-ComboOptionText $_ }).Count -eq $payload.Options.Count)
             # 肢抽出は順序付き走査を最優先する（改行なしで連続するマーカーも分割可能）。
             $statementItems = @(Extract-OrderedKataStatements $payload.QuestionText)
-            # 順序付き抽出が不十分なら従来ロジックにフォールバックする。
-            if ($statementItems.Count -lt 4) {
+            # 順序付き抽出が空のときのみ従来ロジックにフォールバックする
+            # （順序付き抽出が取れている場合に重複だらけのフォールバックで上書きしない）。
+            if ($statementItems.Count -eq 0 -and -not [string]::IsNullOrWhiteSpace($payload.QuestionText)) {
                 $fallbackItems = @($payload.CombinationStatements)
-                if ($fallbackItems.Count -lt 4 -and -not [string]::IsNullOrWhiteSpace($payload.QuestionText)) {
+                if ($fallbackItems.Count -lt 4) {
                     $fallbackItems = @()
                     $statementPatterns = @(
                         '(?ms)(?:^|\n)\s*([アイウエオカキクケコ])[\s　\.．、,:：\-]+\s*(.+?)(?=(?:\n\s*[アイウエオカキクケコ][\s　\.．、,:：\-]+)|\z)',
@@ -953,18 +954,21 @@ foreach ($yearItem in $targetYears) {
                         }
                         if ($fallbackItems.Count -ge 4) { break }
                     }
-                    if ($fallbackItems.Count -lt 4) {
-                        foreach ($line in @($payload.QuestionText -split '\r?\n')) {
-                            if ($line -match '^\s*([アイウエオカキクケコ])[\s　\.．、,:：-]+(.+)$') {
-                                $fallbackItems += [PSCustomObject]@{ Marker = $Matches[1]; Text = $Matches[2].Trim() }
-                            }
-                        }
-                    }
                 }
-                # より多くの肢を抽出できた方を採用する。
-                if ($fallbackItems.Count -gt $statementItems.Count) {
-                    $statementItems = $fallbackItems
+                $statementItems = $fallbackItems
+            }
+            # 同一肢テキストの重複を除去する（フォールバックや原文の重複に備える）。
+            if ($statementItems.Count -gt 1) {
+                $seenStatementText = @{}
+                $dedupItems = @()
+                foreach ($si in $statementItems) {
+                    $key = ([string]$si.Text).Trim()
+                    if ([string]::IsNullOrWhiteSpace($key)) { continue }
+                    if ($seenStatementText.ContainsKey($key)) { continue }
+                    $seenStatementText[$key] = $true
+                    $dedupItems += $si
                 }
+                $statementItems = $dedupItems
             }
 
             # combo_ox への昇格条件:
@@ -983,7 +987,9 @@ foreach ($yearItem in $targetYears) {
                 $comboSource = if ($payload.AnswerType -eq 'combo_ox' -and -not [string]::IsNullOrWhiteSpace($payload.ComboAnswer)) { $payload.ComboAnswer } else { ([string]$payload.Options[$payload.AnswerNumber - 1]) }
                 $combo = Normalize-KataCombo $comboSource
                 $isInverted = ([bool]$payload.ComboIsInverted) -or (Test-IsInvertedQuestion $payload.QuestionText)
-                if ($statementItems.Count -lt 4) { $statementItems = @() }
+                # 通常は4肢以上だが、出典側で1肢欠落する等2～3肢のケースも実在するため
+                # 2肢未満のときのみ抽出失敗とみなして空にする。
+                if ($statementItems.Count -lt 2) { $statementItems = @() }
 
                 # 「その正誤を正しく示す組合せ」型: 選択肢に ○/× が含まれるか試みる
                 $sogoMap = Parse-SogoOptionText $comboSource
