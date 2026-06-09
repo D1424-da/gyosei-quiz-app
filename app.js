@@ -557,6 +557,12 @@ function aggregateLegacyRecordDocs(docs) {
   return out;
 }
 
+// 1肢あたりに保持する「間違えた日」の最大件数。
+// records マップは肢ID別に数千件まで増えるため、各肢の wrongDateKeys を
+// 無制限に伸ばすと Firestore ドキュメントの 1 MiB 上限に近づく。
+// 直近 N 件あれば苦手肢表示には十分なので上限を設ける。
+const MAX_WRONG_DATE_KEYS = 20;
+
 function normalizeWrongDateKeys(values) {
   const src = Array.isArray(values) ? values : [];
   const keys = [];
@@ -565,7 +571,12 @@ function normalizeWrongDateKeys(values) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) continue;
     if (!keys.includes(key)) keys.push(key);
   }
-  return keys.sort();
+  keys.sort();
+  // 昇順ソート済みなので末尾（＝新しい日付）から MAX_WRONG_DATE_KEYS 件を残す。
+  if (keys.length > MAX_WRONG_DATE_KEYS) {
+    return keys.slice(keys.length - MAX_WRONG_DATE_KEYS);
+  }
+  return keys;
 }
 
 function normalizeReviewState(review) {

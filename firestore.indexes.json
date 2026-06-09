@@ -1,0 +1,35 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "records",
+      "fieldPath": "records",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "records",
+      "fieldPath": "studyCalendarCheckedDates",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "records",
+      "fieldPath": "studyCalendarDailyCounts",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "records",
+      "fieldPath": "studySessionSnapshot",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "question_sets",
+      "fieldPath": "questions",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "question_bank_years",
+      "fieldPath": "questions",
+      "indexes": []
+    }
+  ]
+}
