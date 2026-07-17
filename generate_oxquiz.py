@@ -31,7 +31,7 @@ except ImportError:
 DEFAULT_INPUT   = "output/gyosyo_all_questions.json"
 DEFAULT_OUTPUT  = "output/api_oxquiz_questions.json"
 PROGRESS_FILE   = "output/api_oxquiz_progress.json"
-MODEL           = "claude-haiku-4-5-20251001"
+MODEL           = "claude-haiku-4-5"
 MAX_TOKENS      = 4096
 REQUEST_DELAY   = 0.6   # sec between API calls (rate limit buffer)
 
