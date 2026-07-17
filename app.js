@@ -42,6 +42,10 @@ const KEY_WEAK_LIST_PREF = 'limb_weak_list_pref';
 const QUESTION_BANK_COLLECTION = 'question_bank_years';
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// バンドルデータのバージョン。問題データを大きく変更したときに更新すると
+// localStorageのキャッシュを自動的にクリアして新データを読み込む。
+const BUNDLE_VERSION = '2025-07-17-v2';
+
 // ── 状態 ────────────────────────────────────────────
 let questions   = [];   // 全問題
 let records     = {};   // 成績
@@ -1857,8 +1861,11 @@ async function syncBundledQuestions() {
 
     const local = JSON.parse(storageGetItem(KEY_QUESTIONS) || '[]');
     const meta = getQuestionsMeta();
-    // Preserve explicit local edits/imports on this device.
-    if (meta.localDirty) return;
+
+    // バンドルバージョンが変わっていたら localDirty を無視して強制リロードする。
+    // これにより問題データの大幅更新時にキャッシュが自動的に更新される。
+    const bundleVersionChanged = meta.bundleVersion !== BUNDLE_VERSION;
+    if (meta.localDirty && !bundleVersionChanged) return;
 
     const cloudLoaded = await pullQuestionsFromCloudIfNeeded(true);
     if (cloudLoaded) return;
@@ -1880,6 +1887,7 @@ async function syncBundledQuestions() {
       saveQuestionsMeta({
         ...meta,
         localDirty: false,
+        bundleVersion: BUNDLE_VERSION,
         lastBundledSyncAt: Date.now()
       });
       return;
@@ -1891,6 +1899,7 @@ async function syncBundledQuestions() {
     saveQuestionsMeta({
       ...meta,
       localDirty: false,
+      bundleVersion: BUNDLE_VERSION,
       // 同梱データを適用した時刻を明示し、古いクラウド値での上書きを防ぐ。
       localEditedAt: syncedAt,
       lastBundledSyncAt: syncedAt
