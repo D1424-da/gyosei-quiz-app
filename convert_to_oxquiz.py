@@ -32,6 +32,13 @@ COMBO_ANS_PAT = re.compile(
     r"|正しい組合せ"
 )
 
+# 事例問題の人物・物件記号パターン
+SCENARIO_PAT = re.compile(
+    r"[AＡBＢCＣXＸYＹ][はがをにのとも]"  # A・B・X・Y などの当事者
+    r"|甲建物|甲土地|甲会社|甲機械|甲動産"  # 甲〇〇 の目的物
+    r"|[AＡBＢ]社"                          # A社・B社
+)
+
 
 def should_skip_question(q: dict) -> tuple[bool, str]:
     """スキップすべき問題かどうかを判定。(skip, reason) を返す"""
@@ -64,6 +71,19 @@ def extract_year_num(q_id: str):
     return "", 0
 
 
+def get_scenario_text(q: dict) -> str:
+    """事例問題の場合に scenarioText（問題の前提状況）を返す。不要なら空文字。"""
+    qt = q.get("questionText", "")
+    # 問題文が短い・事例設定がない場合はスキップ
+    if len(qt) <= 100 or not SCENARIO_PAT.search(qt):
+        return ""
+    # 肢のいずれかが同じ記号を参照していれば事例依存と判定
+    for limb in q.get("limbs", []):
+        if SCENARIO_PAT.search(limb.get("text", "")):
+            return qt
+    return ""
+
+
 def convert(input_path: str, output_path: str) -> None:
     with open(input_path, encoding="utf-8-sig") as f:
         questions = json.load(f)
@@ -71,6 +91,7 @@ def convert(input_path: str, output_path: str) -> None:
     ox_questions = []
     skip_counts = {}
     invalid_limb_count = 0
+    scenario_count = 0
 
     for q in questions:
         skip, reason = should_skip_question(q)
@@ -80,6 +101,9 @@ def convert(input_path: str, output_path: str) -> None:
 
         q_id = q["id"]
         year, qnum = extract_year_num(q_id)
+        scenario_text = get_scenario_text(q)
+        if scenario_text:
+            scenario_count += 1
 
         for i, limb in enumerate(q.get("limbs", [])):
             limb_text = limb.get("text", "").strip()
@@ -110,6 +134,8 @@ def convert(input_path: str, output_path: str) -> None:
                 ],
                 "questionUrl": q.get("questionUrl", ""),
             }
+            if scenario_text:
+                ox_q["scenarioText"] = scenario_text
             ox_questions.append(ox_q)
 
     with open(output_path, "w", encoding="utf-8") as f:
@@ -120,6 +146,7 @@ def convert(input_path: str, output_path: str) -> None:
     for reason, count in skip_counts.items():
         print(f"  {reason}: {count} 問")
     print(f"  語句組合せ肢（除外）: {invalid_limb_count} 件")
+    print(f"scenarioText付与: {scenario_count} 問")
 
 
 def main():
