@@ -2,11 +2,11 @@
 """
 generate_oxquiz.py
 ------------------
-行政書士試験の多択問題から1問1答（○×）形式をClaude APIで生成する。
+行政書士試験の多択問題から1問1答（○×）形式をGemini APIで生成する。
 
 使い方:
-  export ANTHROPIC_API_KEY=sk-ant-xxxxx
-  python3 generate_oxquiz.py [--input OUTPUT/gyosyo_all_questions.json] [--limit 50]
+  set GEMINI_API_KEY=AIzaxxxxxxxx   (Windows PowerShell: $env:GEMINI_API_KEY="AIzaxxxxxxxx")
+  python generate_oxquiz.py [--input output/gyosyo_all_questions.json] [--limit 50]
 
 出力: output/api_oxquiz_questions.json
 再開: 進捗は output/api_oxquiz_progress.json に保存。途中で止めても再実行で続きから。
@@ -21,19 +21,19 @@ import argparse
 from pathlib import Path
 
 try:
-    import anthropic
+    from google import genai
+    from google.genai import types
 except ImportError:
-    print("Error: anthropic パッケージが未インストールです")
-    print("  pip install anthropic")
+    print("Error: google-genai パッケージが未インストールです")
+    print("  pip install google-genai")
     sys.exit(1)
 
 # ---- 設定 ----
 DEFAULT_INPUT   = "output/gyosyo_all_questions.json"
 DEFAULT_OUTPUT  = "output/api_oxquiz_questions.json"
 PROGRESS_FILE   = "output/api_oxquiz_progress.json"
-MODEL           = "claude-haiku-4-5"
-MAX_TOKENS      = 4096
-REQUEST_DELAY   = 0.6   # sec between API calls (rate limit buffer)
+MODEL           = "gemini-2.0-flash"
+REQUEST_DELAY   = 0.5   # sec between API calls (rate limit buffer)
 
 SYSTEM_PROMPT = """あなたは行政書士試験の問題作成専門家です。
 与えられた択一式問題の各肢（選択肢）を、文脈なしで単独で理解できる1問1答（○×）問題に変換してください。
@@ -77,7 +77,6 @@ def extract_year_num(q_id):
 
 
 def build_user_prompt(q):
-    """問題→APIプロンプト用テキスト"""
     lines = [
         f"問題文: {q['questionText']}",
         f"カテゴリ: {q.get('category', '')} / {q.get('source', '')}",
@@ -91,16 +90,17 @@ def build_user_prompt(q):
 
 
 def call_api(client, q):
-    """Claude APIを呼び出して1問1答リストを返す"""
+    """Gemini APIを呼び出して1問1答リストを返す"""
     prompt = build_user_prompt(q)
     try:
-        resp = client.messages.create(
+        resp = client.models.generate_content(
             model=MODEL,
-            max_tokens=MAX_TOKENS,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}],
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+            ),
         )
-        raw = resp.content[0].text.strip()
+        raw = resp.text.strip()
         # JSON ブロック抽出
         if "```json" in raw:
             raw = raw.split("```json")[1].split("```")[0].strip()
@@ -116,7 +116,6 @@ def call_api(client, q):
 
 
 def make_ox_question(q, limb_data, limb_index):
-    """個別の1問1答レコードを作成"""
     year, qnum = extract_year_num(q["id"])
     original_limb = q["limbs"][limb_index] if limb_index < len(q["limbs"]) else {}
     return {
@@ -141,9 +140,8 @@ def make_ox_question(q, limb_data, limb_index):
 
 
 def process_question(client, q):
-    """1問をAPI処理して1問1答リストを返す"""
     if q.get("answerType") == "text":
-        return []  # 記述式は今回スキップ
+        return []  # 記述式はスキップ
 
     api_limbs = call_api(client, q)
     if not api_limbs:
@@ -159,27 +157,26 @@ def process_question(client, q):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Claude APIで1問1答を生成")
+    parser = argparse.ArgumentParser(description="Gemini APIで1問1答を生成")
     parser.add_argument("--input", default=DEFAULT_INPUT, help="入力JSONファイル")
     parser.add_argument("--output", default=DEFAULT_OUTPUT, help="出力JSONファイル")
     parser.add_argument("--limit", type=int, default=0, help="処理する問題数の上限（0=全問）")
     parser.add_argument("--category", default="", help="特定カテゴリのみ処理")
     args = parser.parse_args()
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
-        print("Error: ANTHROPIC_API_KEY 環境変数が設定されていません")
-        print("  export ANTHROPIC_API_KEY=sk-ant-xxxxx")
+        print("Error: GEMINI_API_KEY 環境変数が設定されていません")
+        print("  PowerShell: $env:GEMINI_API_KEY=\"AIzaxxxxxxxx\"")
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     print(f"読み込み: {args.input}")
     with open(args.input, encoding="utf-8-sig") as f:
         questions = json.load(f)
     print(f"  {len(questions)} 問")
 
-    # フィルタ
     if args.category:
         questions = [q for q in questions if args.category in q.get("category", "")]
         print(f"  カテゴリ '{args.category}' でフィルタ: {len(questions)} 問")
@@ -187,7 +184,6 @@ def main():
         questions = questions[: args.limit]
         print(f"  上限 {args.limit} 問")
 
-    # 進捗読み込み
     progress = load_progress()
     processed_ids = set(progress["processed_ids"])
     results = progress["results"]
