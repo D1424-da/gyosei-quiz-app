@@ -1858,7 +1858,10 @@ async function syncBundledQuestions() {
     const cloudLoaded = await pullQuestionsFromCloudIfNeeded(true);
     if (cloudLoaded) return;
 
-    let resp = await fetch(`output/gyosyo_all_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
+    let resp = await fetch(`output/oxquiz_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
+    if (!resp.ok) {
+      resp = await fetch(`output/gyosyo_all_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
+    }
     if (!resp.ok) {
       resp = await fetch(`output/all_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
       if (!resp.ok) return;
