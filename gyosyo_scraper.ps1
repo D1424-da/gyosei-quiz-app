@@ -981,9 +981,14 @@ foreach ($yearItem in $targetYears) {
             } else { "" }
             $useComboOx = ($payload.AnswerType -eq 'choice' -and $statementItems.Count -ge 4 -and $payload.AnswerNumber -gt 0 -and (Test-ComboOptionText $selectedOptionText))
 
+            # 空欄補充（「空欄［Ⅰ］～［Ⅳ］に当てはまる語句の組合せ」型）は、肢が語句の
+            # 断片になり○×ドリルとして成立しないため combo_ox にしない。選択肢が
+            # 取得できれば choice として、取得できなければ肢0件として後段で除外する。
+            $isBlankFill = ($payload.QuestionText -match ([string][char]0x7A7A + [char]0x6B04))  # 空欄
+
             $resolvedAnswerType = $payload.AnswerType
 
-            if ($payload.AnswerType -eq 'combo_ox' -or $useComboOx) {
+            if ((-not $isBlankFill) -and ($payload.AnswerType -eq 'combo_ox' -or $useComboOx)) {
                 $comboSource = if ($payload.AnswerType -eq 'combo_ox' -and -not [string]::IsNullOrWhiteSpace($payload.ComboAnswer)) { $payload.ComboAnswer } else { ([string]$payload.Options[$payload.AnswerNumber - 1]) }
                 $combo = Normalize-KataCombo $comboSource
                 $isInverted = ([bool]$payload.ComboIsInverted) -or (Test-IsInvertedQuestion $payload.QuestionText)
@@ -1066,6 +1071,13 @@ foreach ($yearItem in $targetYears) {
                         explanation = $payload.Explanation
                     }
                 }
+            }
+
+            # 肢が生成できない問題（選択肢が取得できない空欄補充など）は出題に
+            # 使えないため除外する。
+            if ($limbs.Count -eq 0) {
+                Write-Warning ("肢を生成できないため除外: {0} ({1})" -f $qid, $q.Url)
+                continue
             }
 
             # combo_ox では各肢を個別に出題するため、questionText はリード文のみにする

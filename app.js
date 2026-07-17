@@ -291,11 +291,16 @@ function normalizeCategoryLabel(category) {
     .replace(/\s*・\s*/g, '・')
     .trim();
 
+  // 旧カテゴリ名を新カテゴリ名に統一（normalize_categories.py で変換済みデータ向け）
   const aliasMap = {
-    '行政事件訴訟法': '行政事件訴訟',
-    '行政不服審査法': '行政不服審査法',
-    '行政手続法': '行政手続',
-    '地方自治法': '地方自治'
+    '行政事件訴訟': '行政事件訴訟法',
+    '行政手続': '行政手続法',
+    '地方自治': '地方自治法',
+    '民法・債権': '民法（債権）',
+    '民法：債権': '民法（債権）',
+    '民法：総則': '民法（総則）',
+    '民法：物権': '民法（物権）',
+    '民法：親族': '民法（親族・相続）',
   };
 
   return aliasMap[value] || value;
@@ -1858,7 +1863,10 @@ async function syncBundledQuestions() {
     const cloudLoaded = await pullQuestionsFromCloudIfNeeded(true);
     if (cloudLoaded) return;
 
-    let resp = await fetch(`output/gyosyo_all_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
+    let resp = await fetch(`output/oxquiz_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
+    if (!resp.ok) {
+      resp = await fetch(`output/gyosyo_all_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
+    }
     if (!resp.ok) {
       resp = await fetch(`output/all_questions.json?ts=${Date.now()}`, { cache: 'no-store' });
       if (!resp.ok) return;
