@@ -32,6 +32,16 @@ COMBO_ANS_PAT = re.compile(
     r"|正しい組合せ"
 )
 
+# 肢テキストが「数を答える」形式（「一つ」「二つ」「なし」等）
+COUNT_ANS_PAT = re.compile(r"^[一二三四五六七八九十]つ$|^[0-9０-９]つ$|^なし$|^ない$")
+
+# questionText自体を参照しなければ肢を判断できない問題
+REF_QT_PAT = re.compile(
+    r"この判決|この文章|この規定に関する|本判決"
+    r"|以下の文章|以下の会話|下記の規定"
+    r"|この文章の趣旨|次の文章の趣旨"
+)
+
 # 事例問題の人物・物件記号パターン
 SCENARIO_PAT = re.compile(
     r"[AＡBＢCＣXＸYＹ][はがをにのとも]"  # A・B・X・Y などの当事者
@@ -66,8 +76,9 @@ def should_skip_question(q: dict) -> tuple[bool, str]:
 
 
 def is_valid_limb_text(text: str) -> bool:
-    """肢テキストがO×文として使えるか（語句組合せ答えを除外）"""
-    return not bool(COMBO_ANS_PAT.search(text or ""))
+    """肢テキストがO×文として使えるか（語句組合せ・数量答えを除外）"""
+    t = text or ""
+    return not (COMBO_ANS_PAT.search(t) or COUNT_ANS_PAT.match(t.strip()))
 
 
 def extract_year_num(q_id: str):
@@ -94,6 +105,10 @@ def get_scenario_text(q: dict) -> str:
     if SCENARIO_PAT.search(qt):
         if any(SCENARIO_PAT.search(l.get("text", "")) for l in q.get("limbs", [])):
             return qt
+
+    # パターン3: 「この判決」「この文章の趣旨」等、問題文本体を参照して肢を判断する問題
+    if REF_QT_PAT.search(qt[:300]):
+        return qt
 
     return ""
 
