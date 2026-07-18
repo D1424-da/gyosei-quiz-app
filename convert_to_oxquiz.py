@@ -39,6 +39,12 @@ SCENARIO_PAT = re.compile(
     r"|[AＡBＢ]社"                          # A社・B社
 )
 
+# 「本件〜」エイリアス定義パターン（R6-11のような問題）
+ALIAS_DEF_PAT = re.compile(r'（以下[「『](本件\S{1,10})[」』]という）')
+
+# 正誤が逆転するネガティブ問のパターン
+NEGATIVE_PAT = re.compile(r'誤り|妥当でない|正しくない|誤っている|不適切|間違い')
+
 
 def should_skip_question(q: dict) -> tuple[bool, str]:
     """スキップすべき問題かどうかを判定。(skip, reason) を返す"""
@@ -74,14 +80,33 @@ def extract_year_num(q_id: str):
 def get_scenario_text(q: dict) -> str:
     """事例問題の場合に scenarioText（問題の前提状況）を返す。不要なら空文字。"""
     qt = q.get("questionText", "")
-    # 問題文が短い・事例設定がない場合はスキップ
-    if len(qt) <= 100 or not SCENARIO_PAT.search(qt):
+    if len(qt) <= 100:
         return ""
-    # 肢のいずれかが同じ記号を参照していれば事例依存と判定
-    for limb in q.get("limbs", []):
-        if SCENARIO_PAT.search(limb.get("text", "")):
+
+    # パターン1: 「本件処分」のようなエイリアスを定義し、肢でそのエイリアスを使用
+    alias_match = ALIAS_DEF_PAT.search(qt)
+    if alias_match:
+        alias = alias_match.group(1)
+        if any(alias in l.get("text", "") for l in q.get("limbs", [])):
             return qt
+
+    # パターン2: 問題文と肢の両方に当事者記号（A・B・甲など）が登場
+    if SCENARIO_PAT.search(qt):
+        if any(SCENARIO_PAT.search(l.get("text", "")) for l in q.get("limbs", [])):
+            return qt
+
     return ""
+
+
+def needs_correct_inversion(q: dict) -> bool:
+    """choiceで1肢だけcorrect=Trueかつネガティブ問の場合、O×変換時にcorrectを反転する必要がある。
+    この場合 correct=True は「正解選択肢（=誤り肢）」を意味するため。"""
+    if q.get("answerType") != "choice":
+        return False
+    trues = sum(1 for l in q.get("limbs", []) if l.get("correct"))
+    if trues != 1:
+        return False
+    return bool(NEGATIVE_PAT.search(q.get("questionText", "")))
 
 
 def convert(input_path: str, output_path: str) -> None:
@@ -92,6 +117,7 @@ def convert(input_path: str, output_path: str) -> None:
     skip_counts = {}
     invalid_limb_count = 0
     scenario_count = 0
+    inversion_count = 0
 
     for q in questions:
         skip, reason = should_skip_question(q)
@@ -105,6 +131,10 @@ def convert(input_path: str, output_path: str) -> None:
         if scenario_text:
             scenario_count += 1
 
+        invert = needs_correct_inversion(q)
+        if invert:
+            inversion_count += 1
+
         for i, limb in enumerate(q.get("limbs", [])):
             limb_text = limb.get("text", "").strip()
 
@@ -114,6 +144,9 @@ def convert(input_path: str, output_path: str) -> None:
             if not is_valid_limb_text(limb_text):
                 invalid_limb_count += 1
                 continue
+
+            raw_correct = bool(limb.get("correct", False))
+            correct = (not raw_correct) if invert else raw_correct
 
             ox_q = {
                 "id": f"{q_id}-ox{i}",
@@ -128,7 +161,7 @@ def convert(input_path: str, output_path: str) -> None:
                     {
                         "id": f"{limb.get('id', q_id + '-l' + str(i))}-ox",
                         "text": limb_text,
-                        "correct": bool(limb.get("correct", False)),
+                        "correct": correct,
                         "explanation": "",
                     }
                 ],
@@ -147,6 +180,7 @@ def convert(input_path: str, output_path: str) -> None:
         print(f"  {reason}: {count} 問")
     print(f"  語句組合せ肢（除外）: {invalid_limb_count} 件")
     print(f"scenarioText付与: {scenario_count} 問")
+    print(f"correct反転（ネガティブ問）: {inversion_count} 問")
 
 
 def main():
