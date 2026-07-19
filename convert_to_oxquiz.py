@@ -52,7 +52,12 @@ SCENARIO_PAT = re.compile(
 ALIAS_DEF_PAT = re.compile(r'（以下[「『](本件\S{1,10})[」』]という）')
 
 # 正誤が逆転するネガティブ問のパターン
-NEGATIVE_PAT = re.compile(r'誤り|妥当でない|正しくない|誤っている|不適切|間違い')
+NEGATIVE_PAT = re.compile(
+    r'誤り|妥当でない|正しくない|誤っている|不適切|間違い'
+    r'|読み取れない'       # 「この文章から読み取れない内容」（H24-6）
+    r'|矛盾するもの'       # 「判決の内容と明らかに矛盾するもの」（H24-19）
+    r'|趣旨と異なる'       # 「判決の趣旨と異なるもの」（H25-7）
+)
 
 
 def should_skip_question(q: dict) -> tuple[bool, str]:
@@ -90,6 +95,15 @@ def extract_year_num(q_id: str):
 def get_scenario_text(q: dict) -> str:
     """事例問題の場合に scenarioText（問題の前提状況）を返す。不要なら空文字。"""
     qt = q.get("questionText", "")
+
+    # パターン4: combo_ox で全肢が名詞句（。で終わらない）の問題
+    # 「〇〇の組合せ」問題の選択肢が固有名詞・短語句だけのケース（R5-30、R1-56等）
+    # 問題文フレームなしには何を○×で問われているか判断できない（問題文が短くても付与）
+    if q.get("answerType") == "combo_ox":
+        limbs = q.get("limbs", [])
+        if limbs and all(not l.get("text", "").strip().endswith("。") for l in limbs):
+            return qt
+
     if len(qt) <= 100:
         return ""
 
@@ -108,6 +122,14 @@ def get_scenario_text(q: dict) -> str:
     # パターン3: 「この判決」「この文章の趣旨」等、問題文本体を参照して肢を判断する問題
     if REF_QT_PAT.search(qt[:300]):
         return qt
+
+    # パターン4: combo_ox で全肢が名詞句（。で終わらない）の問題
+    # 「〇〇の組合せ」問題の選択肢が固有名詞・短語句だけのケース（R5-30、R1-56等）
+    # 問題文フレームなしには何を○×で問われているか判断できない
+    if q.get("answerType") == "combo_ox":
+        limbs = q.get("limbs", [])
+        if limbs and all(not l.get("text", "").strip().endswith("。") for l in limbs):
+            return qt
 
     return ""
 
