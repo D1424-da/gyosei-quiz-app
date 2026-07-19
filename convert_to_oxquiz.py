@@ -52,7 +52,12 @@ SCENARIO_PAT = re.compile(
 ALIAS_DEF_PAT = re.compile(r'（以下[「『](本件\S{1,10})[」』]という）')
 
 # 正誤が逆転するネガティブ問のパターン
-NEGATIVE_PAT = re.compile(r'誤り|妥当でない|正しくない|誤っている|不適切|間違い')
+NEGATIVE_PAT = re.compile(
+    r'誤り|妥当でない|正しくない|誤っている|不適切|間違い'
+    r'|読み取れない'       # 「この文章から読み取れない内容」（H24-6）
+    r'|矛盾するもの'       # 「判決の内容と明らかに矛盾するもの」（H24-19）
+    r'|趣旨と異なる'       # 「判決の趣旨と異なるもの」（H25-7）
+)
 
 
 def should_skip_question(q: dict) -> tuple[bool, str]:
