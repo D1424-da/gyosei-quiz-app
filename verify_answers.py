@@ -258,7 +258,14 @@ def call_gemini_api(question_text: str, limb_text: str,
     if not GEMINI_API_KEY:
         return None
 
-    url = f"{GEMINI_API_BASE}/{model_name}:generateContent?key={GEMINI_API_KEY}"
+    # AQ. 形式キーは Bearer 認証、従来の AIza. 形式は ?key= パラメータ
+    if GEMINI_API_KEY.startswith("AQ."):
+        url = f"{GEMINI_API_BASE}/{model_name}:generateContent"
+        headers = {"Authorization": f"Bearer {GEMINI_API_KEY}", "Content-Type": "application/json"}
+    else:
+        url = f"{GEMINI_API_BASE}/{model_name}:generateContent?key={GEMINI_API_KEY}"
+        headers = {"Content-Type": "application/json"}
+
     prompt = USER_PROMPT_TEMPLATE.format(
         question_text=question_text.strip(),
         limb_text=limb_text.strip(),
@@ -275,7 +282,7 @@ def call_gemini_api(question_text: str, limb_text: str,
 
     for attempt in range(MAX_RETRIES):
         try:
-            resp = requests.post(url, json=payload, timeout=60)
+            resp = requests.post(url, json=payload, headers=headers, timeout=60)
             if resp.status_code == 429:
                 wait = RETRY_BACKOFF * (attempt + 1)
                 print(f"    ⚠️  レート制限 (429). {wait}s 待機...")
