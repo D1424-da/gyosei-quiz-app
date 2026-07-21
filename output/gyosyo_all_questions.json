@@ -27301,32 +27301,16 @@
     "limbs": [
       {
         "id": "H26-1-l0",
-        "text": "ア→エ→イ→オ→ウ",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H26-1-l1",
-        "text": "ア→イ→エ→ウ→オ",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H26-1-l2",
-        "text": "ア→イ→ウ→エ→オ",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H26-1-l3",
-        "text": "イ→ア→ウ→エ→オ",
+        "text": "",
+        "options": [
+          "ア→エ→イ→オ→ウ",
+          "ア→イ→エ→ウ→オ",
+          "ア→イ→ウ→エ→オ",
+          "イ→ア→ウ→エ→オ",
+          "イ→エ→オ→ア→ウ"
+        ],
+        "correctText": "イ→ア→ウ→エ→オ",
         "correct": true,
-        "explanation": ""
-      },
-      {
-        "id": "H26-1-l4",
-        "text": "イ→エ→オ→ア→ウ",
-        "correct": false,
         "explanation": ""
       }
     ],
@@ -29846,31 +29830,15 @@
     "limbs": [
       {
         "id": "H27-5-l0",
-        "text": "ア イ ウ エ オ",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H27-5-l1",
-        "text": "イ ウ エ オ ア",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H27-5-l2",
-        "text": "ウ エ オ ア イ",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H27-5-l3",
-        "text": "エ オ ア イ ウ",
-        "correct": false,
-        "explanation": ""
-      },
-      {
-        "id": "H27-5-l4",
-        "text": "オ ア イ ウ エ",
+        "text": "",
+        "options": [
+          "ア イ ウ エ オ",
+          "イ ウ エ オ ア",
+          "ウ エ オ ア イ",
+          "エ オ ア イ ウ",
+          "オ ア イ ウ エ"
+        ],
+        "correctText": "オ ア イ ウ エ",
         "correct": true,
         "explanation": ""
       }

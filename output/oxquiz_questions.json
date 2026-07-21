@@ -50906,95 +50906,28 @@
     "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9025%e5%b9%b4%e3%83%bb2013%ef%bd%9c%e5%95%8f57%ef%bd%9c%e4%b8%80%e8%88%ac%e7%9f%a5%e8%ad%98%e3%83%bb%e6%83%85%e5%a0%b1%e9%80%9a%e4%bf%a1/"
   },
   {
-    "id": "H26-1-ox0",
+    "id": "H26-1",
     "parentId": "H26-1",
     "year": "H26",
     "questionNumber": 1,
     "subject": "行政書士",
     "category": "基礎法学",
     "source": "平成26年・2014｜問1｜基礎法学",
-    "answerType": "ox",
+    "answerType": "choice",
+    "questionText": "第二次世界大戦後の日本の法制度に関する次のア～オの出来事を年代順に並べたものとして正しいものはどれか。\nア 行政事件訴訟特例法にかわって、新たに行政事件訴訟法が制定され、その際、無効等確認訴訟や不作為の違法確認訴訟に関する規定が新設された。\nイ それまでの家事審判所と少年審判所が統合され、裁判所法の規定に基づき、家庭裁判所が創設された。\nウ 環境の保全について、基本理念を定め、環境の保全に関する施策の基本となる事項を定めることなどを目的とする環境基本法が制定された。\nエ 民法の改正により、従来の禁治産・準禁治産の制度にかわって、成年後見制度が創設された。\nオ 裁判員の参加する刑事裁判に関する法律が制定され、国民の中から選任された裁判員が裁判官と共に刑事訴訟手続に関与する裁判員制度が導入された。",
     "limbs": [
       {
-        "id": "H26-1-l0-ox",
-        "text": "ア→エ→イ→オ→ウ",
-        "correct": false,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f1%ef%bd%9c%e5%9f%ba%e7%a4%8e%e6%b3%95%e5%ad%a6/"
-  },
-  {
-    "id": "H26-1-ox1",
-    "parentId": "H26-1",
-    "year": "H26",
-    "questionNumber": 1,
-    "subject": "行政書士",
-    "category": "基礎法学",
-    "source": "平成26年・2014｜問1｜基礎法学",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H26-1-l1-ox",
-        "text": "ア→イ→エ→ウ→オ",
-        "correct": false,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f1%ef%bd%9c%e5%9f%ba%e7%a4%8e%e6%b3%95%e5%ad%a6/"
-  },
-  {
-    "id": "H26-1-ox2",
-    "parentId": "H26-1",
-    "year": "H26",
-    "questionNumber": 1,
-    "subject": "行政書士",
-    "category": "基礎法学",
-    "source": "平成26年・2014｜問1｜基礎法学",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H26-1-l2-ox",
-        "text": "ア→イ→ウ→エ→オ",
-        "correct": false,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f1%ef%bd%9c%e5%9f%ba%e7%a4%8e%e6%b3%95%e5%ad%a6/"
-  },
-  {
-    "id": "H26-1-ox3",
-    "parentId": "H26-1",
-    "year": "H26",
-    "questionNumber": 1,
-    "subject": "行政書士",
-    "category": "基礎法学",
-    "source": "平成26年・2014｜問1｜基礎法学",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H26-1-l3-ox",
-        "text": "イ→ア→ウ→エ→オ",
+        "id": "H26-1-l0",
+        "text": "",
+        "options": [
+          "ア→エ→イ→オ→ウ",
+          "ア→イ→エ→ウ→オ",
+          "ア→イ→ウ→エ→オ",
+          "イ→ア→ウ→エ→オ",
+          "イ→エ→オ→ア→ウ"
+        ],
+        "correctText": "イ→ア→ウ→エ→オ",
         "correct": true,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9026%e5%b9%b4%e3%83%bb2014%ef%bd%9c%e5%95%8f1%ef%bd%9c%e5%9f%ba%e7%a4%8e%e6%b3%95%e5%ad%a6/"
-  },
-  {
-    "id": "H26-1-ox4",
-    "parentId": "H26-1",
-    "year": "H26",
-    "questionNumber": 1,
-    "subject": "行政書士",
-    "category": "基礎法学",
-    "source": "平成26年・2014｜問1｜基礎法学",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H26-1-l4-ox",
-        "text": "イ→エ→オ→ア→ウ",
-        "correct": false,
         "explanation": ""
       }
     ],
@@ -55538,94 +55471,27 @@
     "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9027%e5%b9%b4%e3%83%bb2015%ef%bd%9c%e5%95%8f4%ef%bd%9c%e6%86%b2%e6%b3%95%e3%83%bb%e5%9f%ba%e6%9c%ac%e7%9a%84%e4%ba%ba%e6%a8%a9/"
   },
   {
-    "id": "H27-5-ox0",
+    "id": "H27-5",
     "parentId": "H27-5",
     "year": "H27",
     "questionNumber": 5,
     "subject": "行政書士",
     "category": "憲法",
     "source": "平成27年・2015｜問5｜憲法・9条",
-    "answerType": "ox",
+    "answerType": "choice",
+    "questionText": "次の文章は、自衛隊基地建設のために必要な土地の売買契約を含む土地取得行為と憲法9条の関係を論じた、ある最高裁判所判決の一部である（原文を一部修正した。）。ア～オの本来の論理的な順序に即した並び順として、正しいものはどれか。\nア 憲法9条の宣明する国際平和主義、戦争の放棄、戦力の不保持などの国家の統治活動に対する規範は、私法的な価値秩序とは本来関係のない優れて公法的な性格を有する規範である。\nイ 私法的な価値秩序において、憲法9条の宣明する国際平和主義、戦争の放棄、戦力の不保持などの国家の統治活動に対する規範が、そのままの内容で民法90条にいう「公ノ秩序」の内容を形成し、それに反する私法上の行為の効力を一律に否定する法的作用を営むということはない。\nウ 憲法9条の宣明する国際平和主義、戦争の放棄、戦力の不保持などの国家の統治活動に対する規範は、私法的な価値秩序のもとで確立された私的自治の原則、契約における信義則、取引の安全等の私法上の規範によつて相対化され、民法90条にいう「公ノ秩序」の内容の一部を形成する。\nエ 憲法9条の宣明する国際平和主義、戦争の放棄、戦力の不保持などの国家の統治活動に対する規範にかかわる私法上の行為については、私法的な価値秩序のもとにおいて、社会的に許容されない反社会的な行為であるとの認識が、社会の一般的な観念として確立しているか否かが、私法上の行為の効力の有無を判断する基準になるものというべきである。\nオ 憲法9条は、人権規定と同様、国の基本的な法秩序を宣示した規定であるから、憲法より下位の法形式によるすべての法規の解釈適用に当たつて、その指導原理となりうるものであることはいうまでもない。",
     "limbs": [
       {
-        "id": "H27-5-l0-ox",
-        "text": "ア イ ウ エ オ",
-        "correct": false,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9027%e5%b9%b4%e3%83%bb2015%ef%bd%9c%e5%95%8f5%ef%bd%9c%e6%86%b2%e6%b3%95%e3%83%bb9%e6%9d%a1/"
-  },
-  {
-    "id": "H27-5-ox1",
-    "parentId": "H27-5",
-    "year": "H27",
-    "questionNumber": 5,
-    "subject": "行政書士",
-    "category": "憲法",
-    "source": "平成27年・2015｜問5｜憲法・9条",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H27-5-l1-ox",
-        "text": "イ ウ エ オ ア",
-        "correct": false,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9027%e5%b9%b4%e3%83%bb2015%ef%bd%9c%e5%95%8f5%ef%bd%9c%e6%86%b2%e6%b3%95%e3%83%bb9%e6%9d%a1/"
-  },
-  {
-    "id": "H27-5-ox2",
-    "parentId": "H27-5",
-    "year": "H27",
-    "questionNumber": 5,
-    "subject": "行政書士",
-    "category": "憲法",
-    "source": "平成27年・2015｜問5｜憲法・9条",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H27-5-l2-ox",
-        "text": "ウ エ オ ア イ",
-        "correct": false,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9027%e5%b9%b4%e3%83%bb2015%ef%bd%9c%e5%95%8f5%ef%bd%9c%e6%86%b2%e6%b3%95%e3%83%bb9%e6%9d%a1/"
-  },
-  {
-    "id": "H27-5-ox3",
-    "parentId": "H27-5",
-    "year": "H27",
-    "questionNumber": 5,
-    "subject": "行政書士",
-    "category": "憲法",
-    "source": "平成27年・2015｜問5｜憲法・9条",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H27-5-l3-ox",
-        "text": "エ オ ア イ ウ",
-        "correct": false,
-        "explanation": ""
-      }
-    ],
-    "questionUrl": "https://gyosyo.info/%e5%b9%b3%e6%88%9027%e5%b9%b4%e3%83%bb2015%ef%bd%9c%e5%95%8f5%ef%bd%9c%e6%86%b2%e6%b3%95%e3%83%bb9%e6%9d%a1/"
-  },
-  {
-    "id": "H27-5-ox4",
-    "parentId": "H27-5",
-    "year": "H27",
-    "questionNumber": 5,
-    "subject": "行政書士",
-    "category": "憲法",
-    "source": "平成27年・2015｜問5｜憲法・9条",
-    "answerType": "ox",
-    "limbs": [
-      {
-        "id": "H27-5-l4-ox",
-        "text": "オ ア イ ウ エ",
+        "id": "H27-5-l0",
+        "text": "",
+        "options": [
+          "ア イ ウ エ オ",
+          "イ ウ エ オ ア",
+          "ウ エ オ ア イ",
+          "エ オ ア イ ウ",
+          "オ ア イ ウ エ"
+        ],
+        "correctText": "オ ア イ ウ エ",
         "correct": true,
         "explanation": ""
       }
