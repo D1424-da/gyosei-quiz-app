@@ -51,6 +51,19 @@ SCENARIO_PAT = re.compile(
 # 「本件〜」エイリアス定義パターン（R6-11のような問題）
 ALIAS_DEF_PAT = re.compile(r'（以下[「『](本件\S{1,10})[」』]という）')
 
+# combo_ox で全肢が名詞句の問題に付与する述語
+# 「[肢テキスト]は、[述語]。」という断定文を作る
+NOUN_PHRASE_PREDICATES: dict = {
+    "R1-56":  "主としてアナログ方式で送られている",
+    "R3-36":  "営業として行わない場合には商行為とならない",
+    "R5-13":  "努力義務として規定されている",
+    "R5-30":  "他の連帯債務者に対して効力が生じない",
+    "H21-13": "私人間紛争の裁定的性格を有する行政審判に該当する",
+    "H23-10": "伝統的に行政裁量が広く認められると解されてきた行政行為である",
+    "H30-53": "風適法による許可または届出の対象となっていない",
+    "H30-57": "個人情報保護法2条2項にいう「個人識別符号」である",
+}
+
 # 正誤が逆転するネガティブ問のパターン
 NEGATIVE_PAT = re.compile(
     r'誤り|妥当でない|正しくない|誤っている|不適切|間違い'
@@ -180,6 +193,10 @@ def convert(input_path: str, output_path: str) -> None:
             if not is_valid_limb_text(limb_text):
                 invalid_limb_count += 1
                 continue
+
+            noun_pred = NOUN_PHRASE_PREDICATES.get(q_id, "")
+            if noun_pred:
+                limb_text = f"{limb_text}は、{noun_pred}。"
 
             raw_correct = bool(limb.get("correct", False))
             correct = (not raw_correct) if invert else raw_correct
