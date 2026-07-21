@@ -2408,12 +2408,13 @@ function getAllLimbs(filterSubject = '', filterCategory = '', splitInlineForStat
               category: q.category,
               questionText: getDisplayQuestionText(q),
               source: q.source,
+              scenarioText: q.scenarioText || '',
             });
           }
           continue;
         }
       }
-      limbs.push({ ...limb, questionId: q.id, subject: q.subject, category: q.category, questionText: getDisplayQuestionText(q), source: q.source });
+      limbs.push({ ...limb, questionId: q.id, subject: q.subject, category: q.category, questionText: getDisplayQuestionText(q), source: q.source, scenarioText: q.scenarioText || '' });
     }
   }
   return limbs;
@@ -2795,6 +2796,7 @@ function renderCurrentLimb() {
   area.innerHTML = `
     <div class="limb-card card">
       ${limb.source ? `<div class="limb-meta"><span class="badge badge-source">${esc(limb.source)}</span> <span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>` : `<div class="limb-meta"><span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>`}
+      ${limb.scenarioText ? `<div class="question-shared"><span class="question-label">リード文</span><span class="question-body">${esc(limb.scenarioText)}</span></div>` : ''}
       ${limb.questionText ? `<div class="question-shared"><span class="question-label">問題文</span><span class="question-body">${esc(limb.questionText)}</span></div>` : ''}
       <div class="limb-text">${inlineTextHtml}</div>
       <div class="limb-record">${rate !== null ? `正答率 ${rate}% (${rec.correct}○ ${rec.wrong}×)` : '未回答'}</div>
