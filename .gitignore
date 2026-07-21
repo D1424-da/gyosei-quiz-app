@@ -9,3 +9,4 @@ Thumbs.db
 cache/
 verify_answers.py
 test.py
+.venv
