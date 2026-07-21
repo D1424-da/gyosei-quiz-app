@@ -291,11 +291,13 @@ def call_gemini_api(question_text: str, limb_text: str,
             resp.raise_for_status()
 
             raw = resp.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-            m = re.search(r'\{.*?\}', raw, re.DOTALL)
-            if not m:
-                raise ValueError(f"JSON なし: {raw[:200]}")
-
-            result = json.loads(m.group())
+            try:
+                result = json.loads(raw)
+            except json.JSONDecodeError:
+                m = re.search(r'\{.*\}', raw, re.DOTALL)
+                if not m:
+                    raise ValueError(f"JSON なし: {raw[:200]}")
+                result = json.loads(m.group())
             if 'correct' not in result:
                 raise ValueError(f"'correct' なし: {result}")
             result.setdefault('confidence', '低')
