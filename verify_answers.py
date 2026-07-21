@@ -258,10 +258,10 @@ def call_gemini_api(question_text: str, limb_text: str,
     if not GEMINI_API_KEY:
         return None
 
-    # AQ. 形式キーは Bearer 認証、従来の AIza. 形式は ?key= パラメータ
+    # AQ. 形式キーは x-goog-api-key ヘッダー、従来の AIza. 形式は ?key= パラメータ
     if GEMINI_API_KEY.startswith("AQ."):
         url = f"{GEMINI_API_BASE}/{model_name}:generateContent"
-        headers = {"Authorization": f"Bearer {GEMINI_API_KEY}", "Content-Type": "application/json"}
+        headers = {"x-goog-api-key": GEMINI_API_KEY, "Content-Type": "application/json"}
     else:
         url = f"{GEMINI_API_BASE}/{model_name}:generateContent?key={GEMINI_API_KEY}"
         headers = {"Content-Type": "application/json"}
