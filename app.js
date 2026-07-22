@@ -47,6 +47,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const BUNDLE_VERSION = '2026-07-21-v1';
 
 // ── 状態 ────────────────────────────────────────────
+const MANAGE_PAGE_SIZE = 50;
+let managePage = 0;
 let questions   = [];   // 全問題
 let records     = {};   // 成績
 let session     = null; // 現在の学習セッション { queue: [limb], index, filter }
@@ -2976,7 +2978,8 @@ function showCompletionMessage() {
 }
 
 // ── 問題管理ページ ────────────────────────────────────────────
-function renderManage() {
+function renderManage(resetPage = false) {
+  if (resetPage) managePage = 0;
   refreshFilterOptions();
   const keyword  = document.getElementById('search-manage').value.toLowerCase();
   const subject  = document.getElementById('manage-filter-subject').value;
@@ -3003,11 +3006,25 @@ function renderManage() {
   const list = document.getElementById('question-list');
   if (filtered.length === 0) {
     list.innerHTML = '<p class="empty-state">問題がありません。「問題追加」から登録してください。</p>';
+    document.getElementById('manage-pagination').classList.add('hidden');
     updateBulkDeleteBtn();
     return;
   }
 
-  list.innerHTML = filtered.map(q => {
+  const totalPages = Math.ceil(filtered.length / MANAGE_PAGE_SIZE);
+  managePage = Math.min(managePage, totalPages - 1);
+  const pageItems = filtered.slice(managePage * MANAGE_PAGE_SIZE, (managePage + 1) * MANAGE_PAGE_SIZE);
+
+  const pagination = document.getElementById('manage-pagination');
+  const pageInfo   = document.getElementById('manage-page-info');
+  const prevBtn    = document.getElementById('btn-manage-prev');
+  const nextBtn    = document.getElementById('btn-manage-next');
+  pagination.classList.toggle('hidden', totalPages <= 1);
+  pageInfo.textContent = `${managePage + 1} / ${totalPages} ページ（全${filtered.length}件）`;
+  prevBtn.disabled = managePage === 0;
+  nextBtn.disabled = managePage >= totalPages - 1;
+
+  list.innerHTML = pageItems.map(q => {
     const limbsHtml = q.limbs.map((l, i) => {
       const rec   = getRecord(l.id);
       const total = rec.correct + rec.wrong;
@@ -3880,10 +3897,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('btn-add-limb').addEventListener('click', () => {
     addLimbRow(document.getElementById('limbs-editor'));
   });
-  document.getElementById('search-manage').addEventListener('input', renderManage);
-  document.getElementById('manage-filter-subject').addEventListener('change', renderManage);
-  document.getElementById('manage-year-from').addEventListener('change', renderManage);
-  document.getElementById('manage-year-to').addEventListener('change', renderManage);
+  document.getElementById('search-manage').addEventListener('input', () => renderManage(true));
+  document.getElementById('manage-filter-subject').addEventListener('change', () => renderManage(true));
+  document.getElementById('manage-year-from').addEventListener('change', () => renderManage(true));
+  document.getElementById('manage-year-to').addEventListener('change', () => renderManage(true));
+  document.getElementById('btn-manage-prev').addEventListener('click', () => { managePage--; renderManage(); window.scrollTo(0,0); });
+  document.getElementById('btn-manage-next').addEventListener('click', () => { managePage++; renderManage(); window.scrollTo(0,0); });
 
   // 全選択チェックボックス
   document.getElementById('chk-select-all').addEventListener('change', e => {
