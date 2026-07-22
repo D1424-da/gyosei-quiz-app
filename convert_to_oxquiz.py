@@ -34,12 +34,22 @@ COMBO_ANS_PAT = re.compile(
 # 肢テキストが「数を答える」形式（「一つ」「二つ」「なし」等）
 COUNT_ANS_PAT = re.compile(r"^[一二三四五六七八九十]つ$|^[0-9０-９]つ$|^なし$|^ない$")
 
+# 法改正で成立しなくなった肢（「法改正により削除」「法改正により回答不要」）
+# ※「法改正により、〜」のような通常の文は読点が入るためマッチしない
+JUNK_LIMB_PAT = re.compile(r"法改正により(削除|回答不要)")
+
 # questionText自体を参照しなければ肢を判断できない問題
 REF_QT_PAT = re.compile(
     r"この判決|この文章|この規定に関する|本判決"
     r"|以下の文章|以下の会話|下記の規定"
     r"|この文章の趣旨|次の文章の趣旨"
+    r"|次の文章|次に掲げる条文"
 )
+
+# 問題文をscenarioTextとして必ず付与する問題（自動判定で拾えないもの）
+SCENARIO_FORCE_IDS = {
+    "H30-6",   # 政党Xの公選法改正提案（ア～エ）が問題文にしかない
+}
 
 # 事例問題の人物・物件記号パターン
 SCENARIO_PAT = re.compile(
@@ -51,8 +61,9 @@ SCENARIO_PAT = re.compile(
 # 「本件〜」エイリアス定義パターン（R6-11のような問題）
 ALIAS_DEF_PAT = re.compile(r'（以下[「『](本件\S{1,10})[」』]という）')
 
-# combo_ox で全肢が名詞句の問題に付与する述語
-# 「[肢テキスト]は、[述語]。」という断定文を作る
+# 肢が名詞句・語句のみの問題に付与する述語
+# 値に {} を含む場合はテンプレート（{} に肢テキストが入る）、
+# 含まない場合は「[肢テキスト]は、[述語]。」という断定文を作る
 NOUN_PHRASE_PREDICATES: dict = {
     "R1-56":  "主としてアナログ方式で送られている",
     "R3-36":  "営業として行わない場合には商行為とならない",
@@ -62,6 +73,25 @@ NOUN_PHRASE_PREDICATES: dict = {
     "H23-10": "伝統的に行政裁量が広く認められると解されてきた行政行為である",
     "H30-53": "風適法による許可または届出の対象となっていない",
     "H30-57": "個人情報保護法2条2項にいう「個人識別符号」である",
+    # ── choice型で肢が名詞句・語句のみの問題 ──
+    "R1-38":  "公開会社において、{}、権利行使の6ヵ月（定款による短縮可）前から引き"
+              "続き株式を有する株主のみが権利を行使できると会社法は定めている。",
+    "R6-53":  "住民基本台帳法に明示されている住民票の記載事項である",
+    "H21-7":  "日本国憲法の定めによると、両院協議会を必ずしも開かなくてもよいとされている",
+    "H23-57": "語群「{}」には、カギ括弧内の語句と密接に関連しているとはいえない語句が含まれている。",
+    "H24-2":  "「{}」という条文は、正しい法律の条文においては「みなす」ではなく"
+              "「推定する」の文言が用いられている。",
+    "H25-38": "{}、その決議は、株主総会の決議無効確認の訴えにおいて無効原因となる。",
+    "H25-56": "{}、個人情報保護法上、あらかじめ本人の同意を得る必要がある。",
+    "H26-40": "会社法の規定に照らし、定款の定めを必要としない",
+    "H26-57": "個人情報取扱事業者の義務規定の適用除外として個人情報保護法に定められていない",
+    "H27-4":  "この文章にいう「生存権的基本権」の本来的な特徴を備えているとはいえない",
+    "H27-40": "会社法の規定に照らし、登記を必要とする事項である",
+    "H28-55": "IoT（Internet of Things）とは、{}である。",
+    "H29-30": "ＢおよびＡの占有が「{}」であるとき、Ａは、自己の占有または自己の占有に"
+              "Ｂの占有を併せた占有を主張しても、甲不動産を時効取得できない。",
+    "H29-51": "「{}」を比較すると、Ａの方がＢよりも大きな値となる。",
+    "H30-6":  "この提案（公職選挙法改正案）による抵触が問題となり得ない選挙原則である",
 }
 
 # 正誤が逆転するネガティブ問のパターン
@@ -89,13 +119,18 @@ def should_skip_question(q: dict) -> tuple[bool, str]:
     if ("次の文章" in qt or "文章は" in qt) and "下線" in qt:
         return True, "判例文（下線部組合せ）"
 
+    # 並べ替え問題（年代順・文章の論理的順序）はO×に変換できない
+    if re.search(r"年代順|並び順|論理的な順序|順に並べ", qt):
+        return True, "並べ替え"
+
     return False, ""
 
 
 def is_valid_limb_text(text: str) -> bool:
-    """肢テキストがO×文として使えるか（語句組合せ・数量答えを除外）"""
+    """肢テキストがO×文として使えるか（語句組合せ・数量答え・法改正削除肢を除外）"""
     t = text or ""
-    return not (COMBO_ANS_PAT.search(t) or COUNT_ANS_PAT.match(t.strip()))
+    return not (COMBO_ANS_PAT.search(t) or COUNT_ANS_PAT.match(t.strip())
+                or JUNK_LIMB_PAT.search(t))
 
 
 def extract_year_num(q_id: str):
@@ -105,44 +140,54 @@ def extract_year_num(q_id: str):
     return "", 0
 
 
+def _limb_needs_context(text: str) -> bool:
+    """肢テキスト単体では判断できない参照語（先行詞なしの本件・同法・同条）を含むか"""
+    # 「本件〜」は問題文で定義された事案を指す
+    if "本件" in text:
+        return True
+    # 「同法」「同条」の先行詞（〜法・〜条）が肢内に存在しない場合
+    for ref, ante_pat in (("同法", r"[一-龥ァ-ヴーa-zA-Z０-９0-9]+法"),
+                          ("同条", r"[0-9０-９一二三四五六七八九十]+条")):
+        pos = text.find(ref)
+        if pos >= 0 and not re.search(ante_pat, text[:pos]):
+            return True
+    return False
+
+
 def get_scenario_text(q: dict) -> str:
     """事例問題の場合に scenarioText（問題の前提状況）を返す。不要なら空文字。"""
     qt = q.get("questionText", "")
+    limbs = q.get("limbs", [])
+
+    # 強制付与リスト
+    if q.get("id") in SCENARIO_FORCE_IDS:
+        return qt
 
     # パターン4: combo_ox で全肢が名詞句（。で終わらない）の問題
     # 「〇〇の組合せ」問題の選択肢が固有名詞・短語句だけのケース（R5-30、R1-56等）
-    # 問題文フレームなしには何を○×で問われているか判断できない（問題文が短くても付与）
     if q.get("answerType") == "combo_ox":
-        limbs = q.get("limbs", [])
         if limbs and all(not l.get("text", "").strip().endswith("。") for l in limbs):
             return qt
-
-    if len(qt) <= 100:
-        return ""
 
     # パターン1: 「本件処分」のようなエイリアスを定義し、肢でそのエイリアスを使用
     alias_match = ALIAS_DEF_PAT.search(qt)
     if alias_match:
         alias = alias_match.group(1)
-        if any(alias in l.get("text", "") for l in q.get("limbs", [])):
+        if any(alias in l.get("text", "") for l in limbs):
             return qt
 
     # パターン2: 問題文と肢の両方に当事者記号（A・B・甲など）が登場
     if SCENARIO_PAT.search(qt):
-        if any(SCENARIO_PAT.search(l.get("text", "")) for l in q.get("limbs", [])):
+        if any(SCENARIO_PAT.search(l.get("text", "")) for l in limbs):
             return qt
 
     # パターン3: 「この判決」「この文章の趣旨」等、問題文本体を参照して肢を判断する問題
     if REF_QT_PAT.search(qt[:300]):
         return qt
 
-    # パターン4: combo_ox で全肢が名詞句（。で終わらない）の問題
-    # 「〇〇の組合せ」問題の選択肢が固有名詞・短語句だけのケース（R5-30、R1-56等）
-    # 問題文フレームなしには何を○×で問われているか判断できない
-    if q.get("answerType") == "combo_ox":
-        limbs = q.get("limbs", [])
-        if limbs and all(not l.get("text", "").strip().endswith("。") for l in limbs):
-            return qt
+    # パターン5: 肢が先行詞のない参照語（本件・同法・同条）を含む
+    if any(_limb_needs_context(l.get("text", "")) for l in limbs):
+        return qt
 
     return ""
 
@@ -196,7 +241,10 @@ def convert(input_path: str, output_path: str) -> None:
 
             noun_pred = NOUN_PHRASE_PREDICATES.get(q_id, "")
             if noun_pred:
-                limb_text = f"{limb_text}は、{noun_pred}。"
+                if "{}" in noun_pred:
+                    limb_text = noun_pred.format(limb_text)
+                else:
+                    limb_text = f"{limb_text}は、{noun_pred}。"
 
             raw_correct = bool(limb.get("correct", False))
             correct = (not raw_correct) if invert else raw_correct

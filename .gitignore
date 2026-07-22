@@ -6,7 +6,6 @@ node_modules/
 .env
 .DS_Store
 Thumbs.db
-cache/
 verify_answers.py
 test.py
 .venv
