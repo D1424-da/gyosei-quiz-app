@@ -11,4 +11,3 @@ test.py
 .venv
 __pycache__/
 output/verification_corrections.json
-admin_law_gyosei_expanded.xlsx
