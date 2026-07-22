@@ -1,0 +1,653 @@
+[
+  {
+    "id": "R1-3",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "地方議会の自律権は、議院の自律権とは異なり法律上認められたものにすぎないので、裁判所は、除名に限らず、地方議会による議員への懲罰について広く審査を行うことができ"
+      }
+    ]
+  },
+  {
+    "id": "R1-28",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": true,
+        "html_correct": false,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "代理人が本人の許諾を得て復代理人を選任した場合において、復代理人が代理行為の履行として相手方から目的物を受領したときは、同人はこれを代理人に対してではなく、本人"
+      }
+    ]
+  },
+  {
+    "id": "R1-38",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "R1-52",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "R2-5",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "R3-28",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 0,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "Aは自己の財産につき管理人を置いていたが、権限について定めていなかった場合であっても、管理人は、保存行為および、その財産の性質を変えない範囲内において利用または"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 1,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "Aが自己の財産につき管理人を置かなかったときは、利害関係人または検察官の請求により、家庭裁判所は、その財産の管理について必要な処分を命ずることができる。"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 2,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "Aが自己の財産につき管理人を置いた場合において、Aの生死が明らかでないときは、利害関係人または検察官の請求により、家庭裁判所は、管理人を改任することができる。"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": true,
+        "html_correct": false,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "Aの生死が7年間明らかでないときは、利害関係人の請求により、家庭裁判所はAについて失踪の宣告をすることができ、これにより、Aは、失踪の宣告を受けた時に死亡したも"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 4,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "Aについて失踪の宣告が行われた場合、Aは死亡したものとみなされるが、Aが生存しているときの権利能力自体は、これによって消滅するものではない。"
+      }
+    ]
+  },
+  {
+    "id": "R4-49",
+    "answerType": "combo_ox",
+    "issues": [
+      {
+        "type": "LIMB_COUNT_MISMATCH",
+        "expected": 6,
+        "actual": 5,
+        "missing_from_json": [
+          {
+            "kana": "ア",
+            "text": "イギリス、フランス、中国の5か国は批准していない。"
+          },
+          {
+            "kana": "カ",
+            "text": "ロシ"
+          }
+        ]
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 0,
+        "kana": null,
+        "json_text": "コスタリカは軍隊を持たないことを憲法に明記し、フィリピンは非核政策を憲法に明記している。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      }
+    ],
+    "ground_truth_by_kana": {
+      "ア": true,
+      "イ": true,
+      "ウ": false,
+      "カ": true,
+      "エ": false,
+      "オ": true
+    }
+  },
+  {
+    "id": "R6-34",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 4,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "交通事故の被害者が後遺症により労働能力の一部を喪失した場合に、その後に被害者が別原因で死亡したとしても、交通事故の時点で、その死亡の原因となる具体的事由が存在し"
+      }
+    ]
+  },
+  {
+    "id": "H21-3",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H21-7",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H22-5",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H22-8",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H22-31",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H23-5",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H24-2",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 0,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "未成年者が婚姻をしたときは、これによって成年に達したものとみなす。(民法753条) 法改正により回答不要"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 1,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "移送の裁判が確定したときは、訴訟は、初めから移送を受けた裁判所に係属していたものとみなす。(民事訴訟法22条3項)"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 2,
+        "json_correct": true,
+        "html_correct": false,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "文書は、その方式及び趣旨により公務員が職務上作成したものと認めるべきときは、真正に成立した公文書とみなす。(民事訴訟法228条2項)"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "自己の財物であっても、他人が占有し、又は公務所の命令により他人が看守するものであるときは、この章の罪*については、他人の財物とみなす。(刑法242条)"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 4,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "試験事務に従事する指定試験機関の役員及び職員は、刑法その他の罰則の適用については、法令により公務に従事する職員とみなす。(行政書士法4条の7第3項〔一部省略〕)"
+      }
+    ]
+  },
+  {
+    "id": "H24-16",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "取消訴訟においては、自己の法律上の利益に関係のない違法を理由として取消しを求めることができないが、この制限規定は、無効確認訴訟には準用されていない。"
+      }
+    ]
+  },
+  {
+    "id": "H25-7",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 0,
+        "json_correct": true,
+        "html_correct": false,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "報道機関の取材の自由は憲法21条1項の規定の保障の下にあることはいうまでもないが、この自由は他の国民一般にも平等に保障されるものであり、司法記者クラブ所属の報道"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 1,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "憲法82条1項は、裁判の対審及び判決が公開の法廷で行われるべきことを定めているが、その趣旨は、裁判を一般に公開して裁判が公正に行われることを制度として保障し、ひ"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 2,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "憲法21条1項は表現の自由を保障しており、各人が自由にさまざまな意見、知識、情報に接し、これを摂取する機会をもつことは、個人の人格発展にも民主主義社会にとっても"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "さまざまな意見、知識、情報に接し、これを摂取することを補助するものとしてなされる限り、筆記行為の自由は、憲法21条1項の規定の精神に照らして尊重されるべきである"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 4,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "傍聴人のメモを取る行為が公正かつ円滑な訴訟の運営を妨げるに至ることは通常はあり得ないのであって、特段の事情のない限り、これを傍聴人の自由に任せるべきであり、それ"
+      }
+    ]
+  },
+  {
+    "id": "H25-38",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H25-56",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H26-4",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 0,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "一般に、国民生活上不可欠な役務の提供の中には、当該役務のもつ高度の公共性にかんがみ、その適正な提供の確保のために、法令によって、提供すべき役務の内容及び対価等を"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 1,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "憲法22条１項は、国民の基本的人権の一つとして、職業選択の自由を保障しており、そこで職業選択の自由を保障するというなかには、広く一般に、いわゆる営業の自由を保障"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 2,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "しかし、憲法は、個人の経済活動につき、その絶対かつ無制限の自由を保障する趣旨ではなく、各人は、「公共の福祉に反しない限り」において、その自由を享有することができ"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "のみならず、憲法の他の条項をあわせ考察すると、憲法は、全体として、福祉国家的理想のもとに、社会経済の均衡のとれた調和的発展を企図しており、その見地から、すべての"
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 4,
+        "json_correct": true,
+        "html_correct": false,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "おもうに、右条項に基づく個人の経済活動に対する法的規制は、個人の自由な経済活動からもたらされる諸々の弊害が社会公共の安全と秩序の維持の見地から看過することができ"
+      }
+    ]
+  },
+  {
+    "id": "H26-28",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "ＡがＥの詐欺によって本件売買契約を締結した場合、この事実をＢが知っていたとき、または知らなかったことにつき過失があったときは、ＡはＥの詐欺を理由として本件売買契"
+      }
+    ]
+  },
+  {
+    "id": "H26-40",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H26-57",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H27-6",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 4,
+        "json_correct": true,
+        "html_correct": false,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "地方議会議員の出席停止処分は、除名とは異なり議員の権利行使の一時的制約にすぎず、議会の内部規律の問題として自治的措置にゆだねるべきであるから、裁判所の審査は及ば"
+      }
+    ]
+  },
+  {
+    "id": "H27-13",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 1,
+        "json_correct": true,
+        "html_correct": false,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "Ｑ「私がしようとしている許可申請については、Ａ県知事が許可・不許可処分をすることになっています。処分の根拠は法律に定められているようです。行政手続法が適用される"
+      }
+    ]
+  },
+  {
+    "id": "H27-40",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H27-52",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "json_correct": false,
+        "html_correct": true,
+        "note": "waku-a見出しの正誤語から抽出",
+        "limb_text": "日本の最北端の島は、利尻島である。"
+      }
+    ]
+  },
+  {
+    "id": "H27-53",
+    "answerType": "combo_ox",
+    "issues": [
+      {
+        "type": "LIMB_COUNT_MISMATCH",
+        "expected": 1,
+        "actual": 4,
+        "missing_from_json": []
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 0,
+        "kana": null,
+        "json_text": "令和3（2021）年10月1日現在の高齢者人口は、人口全体の4分の1を超えている。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 1,
+        "kana": null,
+        "json_text": "令和2（2020）年の国別高齢化率で、日本はイタリア、ドイツに次いで世界第3位、アジア圏では第1位である。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 2,
+        "kana": null,
+        "json_text": "令和3（2021）年の都道府県別の高齢者人口統計によれば、高齢者人口が最も多いのは東京都である。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      },
+      {
+        "type": "CORRECT_MISMATCH",
+        "limb_index": 3,
+        "kana": "ア",
+        "json_correct": false,
+        "html_correct": true,
+        "note": "答え4番目の組合せ「イ・エ」から算出（ネガティブ枠組みのため反転）",
+        "limb_text": "令和2（2020）年の一般刑法犯検挙人員中、年齢別分布で見ると20歳代のグループに次いで65歳以上のグループが第2位を占めている。"
+      }
+    ],
+    "ground_truth_by_kana": {
+      "ア": true
+    }
+  },
+  {
+    "id": "H28-4",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H28-5",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H28-11",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H28-50",
+    "answerType": "combo_ox",
+    "issues": [
+      {
+        "type": "LIMB_COUNT_MISMATCH",
+        "expected": 1,
+        "actual": 5,
+        "missing_from_json": [
+          {
+            "kana": "カ",
+            "text": "韓国などの環太平洋経済圏12か国によって自由貿易圏を構築することを目指すものである。\nイ TPP協定により、音楽や小説などの著作権の保護期間が統一されることとなり、日本では著作権の保護期間が、これまでよりも延長されることとなる。\nウ TPP協定に参加する国々のGDPを合計した値は、世界各国のGDP合計値の5割を超えており、TPP協定によって世界最大の自由貿易圏が誕生することとなる。\nエ TPP協定により、日本が輸入する全品目の9割以上で、最終的に関税が撤廃されることとなる。\nオ TPP協定交渉について日本では農産品の重要5項目とされる米、麦、大豆、牛肉・豚肉、乳製品の関税維持が主張され、それらの関税は撤廃を免れることとなった。"
+          }
+        ]
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 0,
+        "kana": null,
+        "json_text": "TPP協定は、日本、アメリカ、韓国などの環太平洋経済圏12か国によって自由貿易圏を構築することを目指すものである。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 1,
+        "kana": null,
+        "json_text": "TPP協定により、音楽や小説などの著作権の保護期間が統一されることとなり、日本では著作権の保護期間が、これまでよりも延長されることとなる。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 2,
+        "kana": null,
+        "json_text": "TPP協定に参加する国々のGDPを合計した値は、世界各国のGDP合計値の5割を超えており、TPP協定によって世界最大の自由貿易圏が誕生することとなる。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 3,
+        "kana": null,
+        "json_text": "TPP協定により、日本が輸入する全品目の9割以上で、最終的に関税が撤廃されることとなる。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      },
+      {
+        "type": "LIMB_TEXT_MISMATCH",
+        "limb_index": 4,
+        "kana": null,
+        "json_text": "TPP協定交渉について日本では農産品の重要5項目とされる米、麦、大豆、牛肉・豚肉、乳製品の関税維持が主張され、それらの関税は撤廃を免れることとなった。",
+        "html_text": "(対応するHTML肢が見つからない)",
+        "similarity": 0.0
+      }
+    ],
+    "ground_truth_by_kana": {
+      "カ": false
+    }
+  },
+  {
+    "id": "H28-55",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H29-30",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  },
+  {
+    "id": "H29-49",
+    "answerType": "combo_ox",
+    "issues": [
+      {
+        "type": "PARSE_ERROR",
+        "detail": "#toi が見つからない"
+      }
+    ]
+  },
+  {
+    "id": "H29-51",
+    "answerType": "choice",
+    "issues": [
+      {
+        "type": "ANSWER_UNRESOLVED",
+        "detail": "各肢の正誤見出しが抽出できない"
+      }
+    ]
+  }
+]
