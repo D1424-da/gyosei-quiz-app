@@ -123,6 +123,12 @@ def should_skip_question(q: dict) -> tuple[bool, str]:
     if re.search(r"年代順|並び順|論理的な順序|順に並べ", qt):
         return True, "並べ替え"
 
+    # 「異質な1枚」を探す問題（H26-4: 判例のカードをばらまいて紛れ込んだ失敗カードを探す）
+    # → 各肢の正誤は「文として正しいか」ではなく「他の肢と論理的に整合するか」を問うため、
+    #   O×（文単体の真偽）に変換すると全肢の正誤が意味的に反転してしまう
+    if re.search(r"捨てるはずだった失敗カード|紛れ込んだ", qt):
+        return True, "異質カード探し（O×変換不可）"
+
     return False, ""
 
 
@@ -192,11 +198,20 @@ def get_scenario_text(q: dict) -> str:
     return ""
 
 
+# NEGATIVE_PATにマッチしない言い回しでcorrectが「選択された答え（＝異質な1肢）」を
+# 意味しているChoice型問題（cache/html再検証で発見）。
+# H24-2:「『みなす』ではなく『推定する』が使われるべきものが一つだけある。それはどれか」
+#        → correct=Trueは「誤用されている1肢（異質な答え）」を指し、文自体の正誤ではない。
+INVERSION_FORCE_IDS = {"H24-2"}
+
+
 def needs_correct_inversion(q: dict) -> bool:
     """choiceで1肢だけcorrect=Trueかつネガティブ問の場合、O×変換時にcorrectを反転する必要がある。
     この場合 correct=True は「正解選択肢（=誤り肢）」を意味するため。"""
     if q.get("answerType") != "choice":
         return False
+    if q.get("id") in INVERSION_FORCE_IDS:
+        return True
     trues = sum(1 for l in q.get("limbs", []) if l.get("correct"))
     if trues != 1:
         return False

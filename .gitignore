@@ -9,3 +9,5 @@ Thumbs.db
 verify_answers.py
 test.py
 .venv
+__pycache__/
+output/verification_corrections.json
