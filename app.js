@@ -557,6 +557,7 @@ function aggregateLegacyRecordDocs(docs) {
         if (!out[limbId]) out[limbId] = { correct: 0, wrong: 0, wrongDateKeys: [] };
         out[limbId].correct += Number(stat?.correct || 0);
         out[limbId].wrong += Number(stat?.wrong || 0);
+        if (stat?.lastWrong != null) out[limbId].lastWrong = !!stat.lastWrong;
         out[limbId].wrongDateKeys = normalizeWrongDateKeys([
           ...(out[limbId].wrongDateKeys || []),
           ...(Array.isArray(stat?.wrongDateKeys) ? stat.wrongDateKeys : [])
@@ -670,6 +671,7 @@ function normalizeRecordMap(map) {
       correct: Math.max(0, Number(stat?.correct || 0)),
       wrong: Math.max(0, Number(stat?.wrong || 0)),
       wrongDateKeys: normalizeWrongDateKeys(stat?.wrongDateKeys),
+      lastWrong: stat?.lastWrong != null ? !!stat.lastWrong : undefined,
       review: normalizeReviewState(stat?.review),
       mastery: normalizeMasteryValue(stat?.mastery),
       masteryUpdatedAtMs: Math.max(0, Number(stat?.masteryUpdatedAtMs || 0))
@@ -702,6 +704,8 @@ function mergeRecordsNoLoss(localMap, remoteMap) {
         ...(local[id]?.wrongDateKeys || []),
         ...(remote[id]?.wrongDateKeys || [])
       ]),
+      lastWrong: (right.lastAnsweredAtMs >= left.lastAnsweredAtMs)
+        ? remote[id]?.lastWrong : local[id]?.lastWrong,
       review,
       mastery: masteryFromRemote
         ? normalizeMasteryValue(remote[id]?.mastery)
@@ -718,6 +722,13 @@ function setMasteryCountBarVisible(visible) {
   bar.classList.toggle('hidden', !visible);
 }
 
+function isLastWrong(stat) {
+  if (stat?.lastWrong === true) return true;
+  if (stat?.lastWrong === false) return false;
+  // lastWrong フラグがない旧データ: wrong > 0 なら間違えたもの扱い
+  return Math.max(0, Number(stat?.wrong || 0)) > 0;
+}
+
 function updateMasteryCounts() {
   let perfect = 0;
   let ambiguous = 0;
@@ -726,7 +737,7 @@ function updateMasteryCounts() {
   for (const stat of Object.values(records || {})) {
     if (normalizeMasteryValue(stat?.mastery) === 'perfect') perfect++;
     if (normalizeMasteryValue(stat?.mastery) === 'ambiguous') ambiguous++;
-    if (Math.max(0, Number(stat?.wrong || 0)) > 0) wrong++;
+    if (isLastWrong(stat)) wrong++;
   }
 
   setText('count-perfect', `完璧: ${perfect}`);
@@ -1273,10 +1284,7 @@ async function flushRecordsToCloudIfNeeded() {
 function addPendingRecordDelta(limbId, isCorrect) {
   const key = String(limbId || '');
   if (!key) return;
-
-  // 同じセッション内で同じ肢に対して複数回答える場合、最後の答えだけを反映
-  // 前回の記録がある場合は初期化して上書き
-  pendingRecordDeltas[key] = { correct: 0, wrong: 0 };
+  pendingRecordDeltas[key] = { correct: 0, wrong: 0, lastWrong: !isCorrect };
 
   if (isCorrect) {
     pendingRecordDeltas[key].correct = 1;
@@ -1288,9 +1296,10 @@ function addPendingRecordDelta(limbId, isCorrect) {
 function mergePendingRecordDeltas(target, source) {
   const out = { ...(target || {}) };
   for (const [limbId, delta] of Object.entries(source || {})) {
-    if (!out[limbId]) out[limbId] = { correct: 0, wrong: 0 };
+    if (!out[limbId]) out[limbId] = { correct: 0, wrong: 0, lastWrong: false };
     out[limbId].correct += Math.max(0, Number(delta?.correct || 0));
     out[limbId].wrong += Math.max(0, Number(delta?.wrong || 0));
+    if (delta?.lastWrong != null) out[limbId].lastWrong = !!delta.lastWrong;
   }
   return out;
 }
@@ -1320,7 +1329,7 @@ async function flushRecordDeltasToCloudIfNeeded() {
         const c = Math.max(0, Number(delta?.correct || 0));
         const w = Math.max(0, Number(delta?.wrong || 0));
         if (c <= 0 && w <= 0) continue;
-        recordsPatch[limbId] = {};
+        recordsPatch[limbId] = { lastWrong: !!delta.lastWrong };
         if (c > 0) recordsPatch[limbId].correct = firebase.firestore.FieldValue.increment(c);
         if (w > 0) recordsPatch[limbId].wrong = firebase.firestore.FieldValue.increment(w);
       }
@@ -2350,14 +2359,18 @@ function addRecord(limbId, isCorrect) {
       correct: 0,
       wrong: 0,
       wrongDateKeys: [],
+      lastWrong: false,
       review: normalizeReviewState(null),
       mastery: '',
       masteryUpdatedAtMs: 0
     };
   }
-  if (isCorrect) records[limbId].correct++;
-  else {
+  if (isCorrect) {
+    records[limbId].correct++;
+    records[limbId].lastWrong = false;
+  } else {
     records[limbId].wrong++;
+    records[limbId].lastWrong = true;
     records[limbId].wrongDateKeys = normalizeWrongDateKeys([
       ...(records[limbId].wrongDateKeys || []),
       toDateKey()
@@ -2367,7 +2380,6 @@ function addRecord(limbId, isCorrect) {
   }
   records[limbId].review = nextReviewState(records[limbId].review, isCorrect);
 
-  // 回答が発生した時点で当日を学習済みにする（タイマー更新の取りこぼし対策）。
   markTodayAsStudied();
   incrementStudyDailyCount(toDateKey(), 1);
 
@@ -2659,7 +2671,7 @@ function startSession() {
   }
 
   if (mode === 'weak') {
-    limbs = limbs.filter(l => getRecord(l.id).wrong > 0 || getRecord(l.id).correct === 0);
+    limbs = limbs.filter(l => isLastWrong(getRecord(l.id)));
     limbs.sort((a, b) => weakScore(b.id) - weakScore(a.id));
   } else if (mode === 'perfect') {
     limbs = limbs.filter(l => normalizeMasteryValue(getRecord(l.id).mastery) === 'perfect');
@@ -2678,7 +2690,7 @@ function startSession() {
     });
     limbs = shuffle(limbs);
   } else if (mode === 'wrong') {
-    limbs = limbs.filter(l => getRecord(l.id).wrong > 0);
+    limbs = limbs.filter(l => isLastWrong(getRecord(l.id)));
     limbs = shuffle(limbs);
   } else {
     limbs = shuffle(limbs);
@@ -3586,7 +3598,7 @@ function renderStats() {
 
   // 苦手肢トップ50
   const weakSorted = allLimbs
-    .filter(l => getRecord(l.id).wrong > 0)
+    .filter(l => isLastWrong(getRecord(l.id)))
     .filter((l) => {
       if (!hideHighRate) return true;
       const r = getRecord(l.id);
