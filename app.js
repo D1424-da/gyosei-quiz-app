@@ -151,7 +151,7 @@ function storageGetJSON(key, fallback = null) {
 }
 
 function storageSetJSON(key, value) {
-  storageSetJSON(key, value);
+  storageSetItem(key, JSON.stringify(value));
 }
 
 function storageRemoveItem(key) {
