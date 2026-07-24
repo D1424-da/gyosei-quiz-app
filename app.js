@@ -1264,11 +1264,16 @@ async function flushRecordsToCloudIfNeeded() {
 function addPendingRecordDelta(limbId, isCorrect) {
   const key = String(limbId || '');
   if (!key) return;
-  if (!pendingRecordDeltas[key]) {
-    pendingRecordDeltas[key] = { correct: 0, wrong: 0 };
+
+  // 同じセッション内で同じ肢に対して複数回答える場合、最後の答えだけを反映
+  // 前回の記録がある場合は初期化して上書き
+  pendingRecordDeltas[key] = { correct: 0, wrong: 0 };
+
+  if (isCorrect) {
+    pendingRecordDeltas[key].correct = 1;
+  } else {
+    pendingRecordDeltas[key].wrong = 1;
   }
-  if (isCorrect) pendingRecordDeltas[key].correct += 1;
-  else pendingRecordDeltas[key].wrong += 1;
 }
 
 function mergePendingRecordDeltas(target, source) {
