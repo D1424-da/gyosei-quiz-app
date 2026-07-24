@@ -729,6 +729,26 @@ function isLastWrong(stat) {
   return Math.max(0, Number(stat?.wrong || 0)) > 0;
 }
 
+function repairLastWrongData() {
+  const REPAIR_DONE = 'lastWrong_repair_v1';
+  if (storageGetItem(REPAIR_DONE)) return 0;
+  let repaired = 0;
+  for (const stat of Object.values(records)) {
+    if (stat.lastWrong === false && stat.wrong > 0) {
+      stat.lastWrong = null;
+      repaired++;
+    }
+  }
+  if (repaired > 0) {
+    const uid = getAuthUid();
+    const rk = getRecordStorageKey(uid);
+    storageSetJSON(rk, records);
+    recordsPendingSync = true;
+  }
+  storageSetItem(REPAIR_DONE, '1');
+  return repaired;
+}
+
 function updateMasteryCounts() {
   let perfect = 0;
   let ambiguous = 0;
@@ -1061,7 +1081,8 @@ function startCloudRealtimeSubscriptions() {
     if (remoteRecords) {
       const remoteNormalized = normalizeRecordMap(remoteRecords);
       records = remoteNormalized;
-      storageSetJSON(localKey, remoteNormalized);
+      repairLastWrongData();
+      storageSetJSON(localKey, records);
       const now = Date.now();
       saveRecordsMeta({
         ...getRecordsMeta(uid),
@@ -1070,6 +1091,7 @@ function startCloudRealtimeSubscriptions() {
         lastCloudPullAt: now
       }, uid);
       updateMasteryCounts();
+      if (recordsPendingSync) pushRecordsToCloud();
     }
 
     if (typeof updateResumeSessionButton === 'function') updateResumeSessionButton();
@@ -1221,7 +1243,8 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
     if (remoteRecords) {
       const remoteNormalized = normalizeRecordMap(remoteRecords);
       records = remoteNormalized;
-      storageSetJSON(localKey, remoteNormalized);
+      repairLastWrongData();
+      storageSetJSON(localKey, records);
       saveRecordsMeta({
         ...meta,
         localEditedAt: Math.max(remoteEditedAt, localEditedAt, now),
@@ -1237,6 +1260,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
     if (hasRemoteSessionField) markSyncSuccess('session', remoteSessionSavedAt || now);
     tryRenderStatsIfOpen();
     cloudRecordsLoadedUid = uid;
+    if (recordsPendingSync) pushRecordsToCloud();
   } catch (e) {
     markSyncError('records', e);
     warnCloudError('クラウド成績データ同期(取得):', e);
@@ -1853,24 +1877,7 @@ function loadData() {
     }
   }
 
-  // v20260724c 修復: バグで lastWrong: false に上書きされた旧データを復元
-  const REPAIR_KEY = 'lastWrong_repair_v1';
-  if (!storageGetItem(REPAIR_KEY)) {
-    let repaired = 0;
-    for (const [id, stat] of Object.entries(records)) {
-      if (stat.lastWrong === false && stat.wrong > 0) {
-        stat.lastWrong = null;
-        repaired++;
-      }
-    }
-    if (repaired > 0) {
-      storageSetJSON(rk, records);
-      const meta = getRecordsMeta(authUid);
-      meta.localEditedAt = Date.now();
-      saveRecordsMeta(meta, authUid);
-    }
-    storageSetItem(REPAIR_KEY, '1');
-  }
+  repairLastWrongData();
 
   studyTime = loadStudyTimeLocal();
   studyCalendar = loadStudyCalendarLocal();
