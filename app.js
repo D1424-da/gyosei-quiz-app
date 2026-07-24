@@ -53,6 +53,13 @@ let questions   = [];   // 全問題
 let records     = {};   // 成績
 let session     = null; // 現在の学習セッション { queue: [limb], index, filter }
 let currentUser = null; // { id, name }
+// Cloud Sync 排他制御フラグ
+const _inFlight = {};
+function guardInFlight(key, fn) {
+  if (_inFlight[key]) return Promise.resolve();
+  _inFlight[key] = true;
+  return fn().finally(() => { _inFlight[key] = false; });
+}
 let cloudQuestionsLoadedUid = null;
 let cloudPullInFlight = false;
 let cloudRecordsLoadedUid = null;
@@ -84,8 +91,8 @@ let studySessionSnapshotCache = {};
 // ── ユーティリティ ───────────────────────────────────────────
 
 // DOM ヘルパー: getElementById の短縮 + null 安全
-function $(id) { return $(id); }
-function $$(sel) { return $$(sel); }
+function $(id) { return document.getElementById(id); }
+function $$(sel) { return document.querySelectorAll(sel); }
 function setVisible(el, visible) {
   if (!el) return;
   el.classList.toggle('hidden', !visible);
@@ -133,6 +140,20 @@ function storageSetItem(key, value) {
   }
 }
 
+function storageGetJSON(key, fallback = null) {
+  try {
+    const raw = storageGetItem(key);
+    if (raw == null) return fallback;
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function storageSetJSON(key, value) {
+  storageSetJSON(key, value);
+}
+
 function storageRemoveItem(key) {
   if (!useLocalStorage) {
     volatileStorage.delete(key);
@@ -156,28 +177,20 @@ function markSyncError(kind, err) {
 }
 
 function getQuestionsMeta() {
-  try {
-    const m = JSON.parse(storageGetItem(KEY_QUESTIONS_META));
-    return (m && typeof m === 'object') ? m : {};
-  } catch {
-    return {};
-  }
+  const m = storageGetJSON(KEY_QUESTIONS_META, {});
+  return (m && typeof m === 'object') ? m : {};
 }
 
 function saveQuestionsMeta(meta) {
-  storageSetItem(KEY_QUESTIONS_META, JSON.stringify(meta || {}));
+  storageSetJSON(KEY_QUESTIONS_META, meta || {});
 }
 
 function getWeakListPref() {
-  try {
-    const raw = JSON.parse(storageGetItem(KEY_WEAK_LIST_PREF) || '{}');
-    return {
-      hideHighRate: !!raw.hideHighRate,
-      threshold: [60, 70, 80, 90, 95].includes(Number(raw.threshold)) ? Number(raw.threshold) : 80
-    };
-  } catch {
-    return { hideHighRate: false, threshold: 80 };
-  }
+  const raw = storageGetJSON(KEY_WEAK_LIST_PREF, {});
+  return {
+    hideHighRate: !!raw.hideHighRate,
+    threshold: [60, 70, 80, 90, 95].includes(Number(raw.threshold)) ? Number(raw.threshold) : 80
+  };
 }
 
 function saveWeakListPref(pref) {
@@ -185,7 +198,7 @@ function saveWeakListPref(pref) {
     hideHighRate: !!pref?.hideHighRate,
     threshold: [60, 70, 80, 90, 95].includes(Number(pref?.threshold)) ? Number(pref.threshold) : 80
   };
-  storageSetItem(KEY_WEAK_LIST_PREF, JSON.stringify(safe));
+  storageSetJSON(KEY_WEAK_LIST_PREF, safe);
 }
 
 function getRecordStorageKey(uid = getAuthUid()) {
@@ -216,17 +229,13 @@ function normalizeStudyTimeData(data) {
 
 function loadStudyTimeLocal(uid = getAuthUid()) {
   const key = getStudyTimeStorageKey(uid);
-  try {
-    return normalizeStudyTimeData(JSON.parse(storageGetItem(key)) || {});
-  } catch {
-    return { totalMs: 0, pendingDeltaMs: 0 };
-  }
+  return normalizeStudyTimeData(storageGetJSON(key, {}));
 }
 
 function saveStudyTimeLocal(data, uid = getAuthUid()) {
   const key = getStudyTimeStorageKey(uid);
   const normalized = normalizeStudyTimeData(data || {});
-  storageSetItem(key, JSON.stringify(normalized));
+  storageSetJSON(key, normalized);
   studyTime = normalized;
 }
 
@@ -255,11 +264,7 @@ function normalizeStudyCalendarData(data) {
 
 function loadStudyCalendarLocal(uid = getAuthUid()) {
   const key = getStudyCalendarStorageKey(uid);
-  try {
-    return normalizeStudyCalendarData(JSON.parse(storageGetItem(key)) || {});
-  } catch {
-    return { checkedDates: {}, dailyCounts: {}, updatedAtMs: 0 };
-  }
+  return normalizeStudyCalendarData(storageGetJSON(key, {}));
 }
 
 function saveStudyCalendarLocal(data, uid = getAuthUid()) {
@@ -268,7 +273,7 @@ function saveStudyCalendarLocal(data, uid = getAuthUid()) {
     ...(data || {}),
     updatedAtMs: Number(data?.updatedAtMs || Date.now())
   });
-  storageSetItem(key, JSON.stringify(normalized));
+  storageSetJSON(key, normalized);
   studyCalendar = normalized;
 }
 
@@ -358,8 +363,8 @@ function readSavedStudySession(uid = getAuthUid()) {
   }
 
   const key = getStudySessionStorageKey(uid);
-  try {
-    const saved = JSON.parse(storageGetItem(key));
+  {
+    const saved = storageGetJSON(key, null);
     if (!saved || typeof saved !== 'object' || !Array.isArray(saved.queueIds)) return null;
     const normalized = {
       queueIds: saved.queueIds.map(id => String(id || '')).filter(Boolean),
@@ -376,8 +381,6 @@ function readSavedStudySession(uid = getAuthUid()) {
     };
     if (uid && normalized) studySessionSnapshotCache[uid] = normalized;
     return normalized;
-  } catch {
-    return null;
   }
 }
 
@@ -431,7 +434,7 @@ function saveStudySessionSnapshot() {
     savedAt: Date.now()
   };
   studySessionSnapshotCache[uid] = snapshot;
-  storageSetItem(key, JSON.stringify(snapshot));
+  storageSetJSON(key, snapshot);
   sessionSnapshotPendingSync = true;
   flushStudySessionSnapshotToCloudIfNeeded();
   updateResumeSessionButton();
@@ -506,17 +509,13 @@ async function restoreLastStudySession() {
 
 function getRecordsMeta(uid = getAuthUid()) {
   if (!uid) return {};
-  try {
-    const m = JSON.parse(storageGetItem(`${KEY_RECORDS_META}_${uid}`));
-    return (m && typeof m === 'object') ? m : {};
-  } catch {
-    return {};
-  }
+  const m = storageGetJSON(`${KEY_RECORDS_META}_${uid}`, {});
+  return (m && typeof m === 'object') ? m : {};
 }
 
 function saveRecordsMeta(meta, uid = getAuthUid()) {
   if (!uid) return;
-  storageSetItem(`${KEY_RECORDS_META}_${uid}`, JSON.stringify(meta || {}));
+  storageSetJSON(`${KEY_RECORDS_META}_${uid}`, meta || {});
 }
 
 function getActiveUser() {
@@ -852,7 +851,7 @@ function applySharedQuestionBank(remoteQuestions, remoteEditedAt, meta = getQues
   if (!shouldUseRemote) return false;
 
   questions = remoteQuestions;
-  storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
+  storageSetJSON(KEY_QUESTIONS, questions);
   saveQuestionsMeta({
     ...meta,
     localEditedAt: remoteEditedAt || Date.now(),
@@ -935,7 +934,7 @@ async function pullQuestionsFromCloudIfNeeded(force = false) {
     const shouldUseRemote = !Array.isArray(questions) || questions.length === 0 || remoteEditedAt >= localEditedAt;
     if (shouldUseRemote) {
       questions = remoteQuestions;
-      storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
+      storageSetJSON(KEY_QUESTIONS, questions);
       saveQuestionsMeta({
         ...meta,
         localEditedAt: remoteEditedAt || Date.now(),
@@ -1051,7 +1050,7 @@ function startCloudRealtimeSubscriptions() {
     if (remoteRecords) {
       const remoteNormalized = normalizeRecordMap(remoteRecords);
       records = remoteNormalized;
-      storageSetItem(localKey, JSON.stringify(remoteNormalized));
+      storageSetJSON(localKey, remoteNormalized);
       const now = Date.now();
       saveRecordsMeta({
         ...getRecordsMeta(uid),
@@ -1123,7 +1122,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
   cloudRecordsPullInFlight = true;
   try {
     let localRecords = {};
-    try { localRecords = JSON.parse(storageGetItem(localKey)) || {}; } catch { localRecords = {}; }
+    localRecords = storageGetJSON(localKey, {});
     localRecords = normalizeRecordMap(localRecords);
 
     const ref = firebase.firestore().collection('records').doc(uid);
@@ -1139,7 +1138,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
       const aggregatedLegacy = aggregateLegacyRecordDocs(legacyQuery.docs || []);
       if (Object.keys(aggregatedLegacy).length > 0) {
         records = aggregatedLegacy;
-        storageSetItem(localKey, JSON.stringify(records));
+        storageSetJSON(localKey, records);
         const migratedAt = now;
         saveRecordsMeta({
           ...meta,
@@ -1211,7 +1210,7 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
     if (remoteRecords) {
       const remoteNormalized = normalizeRecordMap(remoteRecords);
       records = remoteNormalized;
-      storageSetItem(localKey, JSON.stringify(remoteNormalized));
+      storageSetJSON(localKey, remoteNormalized);
       saveRecordsMeta({
         ...meta,
         localEditedAt: Math.max(remoteEditedAt, localEditedAt, now),
@@ -1470,29 +1469,27 @@ async function pushStudyCalendarToCloud() {
   const uid = getAuthUid();
   if (!uid) return;
   if (!(window.firebase && firebase.firestore)) return;
-  if (cloudCalendarFlushInFlight) return;
 
-  cloudCalendarFlushInFlight = true;
-  try {
-    while (calendarPendingSync) {
-      calendarPendingSync = false;
-      const latest = loadStudyCalendarLocal(uid);
-      await firebase.firestore().collection('records').doc(uid).set({
-        uid,
-        studyCalendarCheckedDates: latest.checkedDates,
-        studyCalendarDailyCounts: latest.dailyCounts || {},
-        studyCalendarUpdatedAtMs: Math.max(0, Number(latest.updatedAtMs || Date.now())),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      markSyncSuccess('calendar', Number(latest.updatedAtMs || Date.now()));
+  return guardInFlight('calendarFlush', async () => {
+    try {
+      while (calendarPendingSync) {
+        calendarPendingSync = false;
+        const latest = loadStudyCalendarLocal(uid);
+        await firebase.firestore().collection('records').doc(uid).set({
+          uid,
+          studyCalendarCheckedDates: latest.checkedDates,
+          studyCalendarDailyCounts: latest.dailyCounts || {},
+          studyCalendarUpdatedAtMs: Math.max(0, Number(latest.updatedAtMs || Date.now())),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        markSyncSuccess('calendar', Number(latest.updatedAtMs || Date.now()));
+      }
+    } catch (e) {
+      calendarPendingSync = true;
+      markSyncError('calendar', e);
+      warnCloudError('学習日カレンダー同期(保存):', e);
     }
-  } catch (e) {
-    calendarPendingSync = true;
-    markSyncError('calendar', e);
-    console.warn('学習日カレンダー同期(保存)エラー:', e);
-  } finally {
-    cloudCalendarFlushInFlight = false;
-  }
+  });
 }
 
 async function flushStudyCalendarToCloudIfNeeded() {
@@ -1523,7 +1520,7 @@ function applyRemoteStudySessionSnapshot(remoteSnapshot, remoteSavedAtMs = 0) {
   const normalized = normalizeStudySessionSnapshot(remoteSnapshot);
   if (!normalized) return;
   studySessionSnapshotCache[uid] = normalized;
-  storageSetItem(key, JSON.stringify(normalized));
+  storageSetJSON(key, normalized);
   updateResumeSessionButton();
 }
 
@@ -1531,29 +1528,27 @@ async function pushStudySessionSnapshotToCloud() {
   const uid = getAuthUid();
   if (!uid) return;
   if (!(window.firebase && firebase.firestore)) return;
-  if (cloudSessionSnapshotFlushInFlight) return;
 
-  cloudSessionSnapshotFlushInFlight = true;
-  try {
-    while (sessionSnapshotPendingSync) {
-      sessionSnapshotPendingSync = false;
-      const snapshot = normalizeStudySessionSnapshot(studySessionSnapshotCache[uid] || readSavedStudySession(uid));
-      const savedAtMs = Math.max(0, Number(snapshot?.savedAt || Date.now()));
-      await firebase.firestore().collection('records').doc(uid).set({
-        uid,
-        studySessionSnapshot: snapshot || null,
-        studySessionSnapshotSavedAtMs: savedAtMs,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      markSyncSuccess('session', savedAtMs);
+  return guardInFlight('sessionSnapshotFlush', async () => {
+    try {
+      while (sessionSnapshotPendingSync) {
+        sessionSnapshotPendingSync = false;
+        const snapshot = normalizeStudySessionSnapshot(studySessionSnapshotCache[uid] || readSavedStudySession(uid));
+        const savedAtMs = Math.max(0, Number(snapshot?.savedAt || Date.now()));
+        await firebase.firestore().collection('records').doc(uid).set({
+          uid,
+          studySessionSnapshot: snapshot || null,
+          studySessionSnapshotSavedAtMs: savedAtMs,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        markSyncSuccess('session', savedAtMs);
+      }
+    } catch (e) {
+      sessionSnapshotPendingSync = true;
+      markSyncError('session', e);
+      warnCloudError('続きスナップショット同期(保存):', e);
     }
-  } catch (e) {
-    sessionSnapshotPendingSync = true;
-    markSyncError('session', e);
-    console.warn('続きスナップショット同期(保存)エラー:', e);
-  } finally {
-    cloudSessionSnapshotFlushInFlight = false;
-  }
+  });
 }
 
 async function flushStudySessionSnapshotToCloudIfNeeded() {
@@ -1733,7 +1728,6 @@ function recordAnswerActionStudyDuration() {
 }
 
 async function flushStudyTimePendingToCloud() {
-  if (cloudStudyFlushInFlight) return;
   const uid = getAuthUid();
   if (!uid) return;
   if (!(window.firebase && firebase.firestore)) return;
@@ -1742,23 +1736,22 @@ async function flushStudyTimePendingToCloud() {
   const delta = Math.floor(Number(local.pendingDeltaMs || 0));
   if (delta <= 0) return;
 
-  cloudStudyFlushInFlight = true;
-  try {
-    const backend = await incrementCloudStudyTotal(uid, delta, studyTimeBackend);
-    studyTimeBackend = backend;
+  return guardInFlight('studyTimeFlush', async () => {
+    try {
+      const backend = await incrementCloudStudyTotal(uid, delta, studyTimeBackend);
+      studyTimeBackend = backend;
 
-    const latest = loadStudyTimeLocal(uid);
-    saveStudyTimeLocal({
-      totalMs: latest.totalMs,
-      pendingDeltaMs: Math.max(0, latest.pendingDeltaMs - delta)
-    }, uid);
-    markSyncSuccess('studyTime', Date.now());
-  } catch (e) {
-    markSyncError('studyTime', e);
-    warnCloudError('学習時間同期(保存):', e);
-  } finally {
-    cloudStudyFlushInFlight = false;
-  }
+      const latest = loadStudyTimeLocal(uid);
+      saveStudyTimeLocal({
+        totalMs: latest.totalMs,
+        pendingDeltaMs: Math.max(0, latest.pendingDeltaMs - delta)
+      }, uid);
+      markSyncSuccess('studyTime', Date.now());
+    } catch (e) {
+      markSyncError('studyTime', e);
+      warnCloudError('学習時間同期(保存):', e);
+    }
+  });
 }
 
 async function pullStudyTimeFromCloudIfNeeded() {
@@ -1830,18 +1823,17 @@ async function resetStudyTime() {
 
 function loadData() {
   currentUser = getActiveUser();
-  try { questions = JSON.parse(storageGetItem(KEY_QUESTIONS)) || []; } catch { questions = []; }
+  questions = storageGetJSON(KEY_QUESTIONS, []);
   const authUid = getAuthUid();
   const rk = getRecordStorageKey(authUid);
-  try { records = normalizeRecordMap(JSON.parse(storageGetItem(rk)) || {}); } catch { records = {}; }
+  records = normalizeRecordMap(storageGetJSON(rk, {}));
 
   // 旧バージョン（単一キー保存）からの移行: uidキーが空なら legacy キーを引き継ぐ。
   if (authUid && isRecordMapEmpty(records)) {
-    let legacy = {};
-    try { legacy = normalizeRecordMap(JSON.parse(storageGetItem(KEY_RECORDS)) || {}); } catch { legacy = {}; }
+    let legacy = normalizeRecordMap(storageGetJSON(KEY_RECORDS, {}));
     if (!isRecordMapEmpty(legacy)) {
       records = legacy;
-      storageSetItem(rk, JSON.stringify(records));
+      storageSetJSON(rk, records);
       const now = Date.now();
       saveRecordsMeta({
         ...getRecordsMeta(authUid),
@@ -1876,7 +1868,7 @@ async function syncBundledQuestions() {
     // ユーザーが明示的に接続したデータファイルを優先する。
     if (fileHandle) return;
 
-    const local = JSON.parse(storageGetItem(KEY_QUESTIONS) || '[]');
+    const local = storageGetJSON(KEY_QUESTIONS, []);
     const meta = getQuestionsMeta();
 
     // バンドルバージョンが変わっていたら localDirty を無視して強制リロードする。
@@ -1911,7 +1903,7 @@ async function syncBundledQuestions() {
     }
 
     const syncedAt = Date.now();
-    storageSetItem(KEY_QUESTIONS, JSON.stringify(bundled));
+    storageSetJSON(KEY_QUESTIONS, bundled);
     questions = bundled;
     saveQuestionsMeta({
       ...meta,
@@ -1927,7 +1919,7 @@ async function syncBundledQuestions() {
 }
 
 function saveQuestions() {
-  storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
+  storageSetJSON(KEY_QUESTIONS, questions);
   saveQuestionsMeta({
     ...getQuestionsMeta(),
     localDirty: true,
@@ -1966,7 +1958,7 @@ function saveRecords(options = {}) {
   const uid = getAuthUid();
   const rk = getRecordStorageKey(uid);
   const now = Date.now();
-  storageSetItem(rk, JSON.stringify(records));
+  storageSetJSON(rk, records);
   if (uid) {
     saveRecordsMeta({
       ...getRecordsMeta(uid),
@@ -1985,10 +1977,10 @@ function saveRecords(options = {}) {
 
 // ── 認証関連 ────────────────────────────────────────────
 function getUsers() {
-  try { return JSON.parse(storageGetItem(KEY_USERS)) || []; } catch { return []; }
+  return storageGetJSON(KEY_USERS, []);
 }
 function saveUsers(users) {
-  storageSetItem(KEY_USERS, JSON.stringify(users));
+  storageSetJSON(KEY_USERS, users);
   writeToFile();
 }
 
@@ -2044,13 +2036,11 @@ const IDB = (() => {
 function getAllRecords() {
   const out = {};
   for (const u of getUsers()) {
-    try { out[u.id] = JSON.parse(storageGetItem(`${KEY_RECORDS}_${u.id}`)) || {}; }
-    catch { out[u.id] = {}; }
+    out[u.id] = storageGetJSON(`${KEY_RECORDS}_${u.id}`, {});
   }
   const authUid = getAuthUid();
   if (authUid && !(authUid in out)) {
-    try { out[authUid] = JSON.parse(storageGetItem(getRecordStorageKey(authUid))) || {}; }
-    catch { out[authUid] = {}; }
+    out[authUid] = storageGetJSON(getRecordStorageKey(authUid), {});
   }
   return out;
 }
@@ -2067,11 +2057,11 @@ async function writeToFile() {
 
 async function applyFileData(data) {
   if (!data || typeof data !== 'object') throw new Error('不正なデータ形式');
-  if (Array.isArray(data.users) && data.users.length > 0) storageSetItem(KEY_USERS, JSON.stringify(data.users));
+  if (Array.isArray(data.users) && data.users.length > 0) storageSetJSON(KEY_USERS, data.users);
   if (Array.isArray(data.questions)) {
     const now = Date.now();
     questions = data.questions;
-    storageSetItem(KEY_QUESTIONS, JSON.stringify(questions));
+    storageSetJSON(KEY_QUESTIONS, questions);
     saveQuestionsMeta({
       ...getQuestionsMeta(),
       localDirty: true,
@@ -2081,7 +2071,7 @@ async function applyFileData(data) {
   }
   if (data.records && typeof data.records === 'object') {
     for (const [uid, recs] of Object.entries(data.records)) {
-      storageSetItem(`${KEY_RECORDS}_${uid}`, JSON.stringify(recs));
+      storageSetJSON(`${KEY_RECORDS}_${uid}`, recs);
     }
   }
 }
