@@ -1853,6 +1853,25 @@ function loadData() {
     }
   }
 
+  // v20260724c 修復: バグで lastWrong: false に上書きされた旧データを復元
+  const REPAIR_KEY = 'lastWrong_repair_v1';
+  if (!storageGetItem(REPAIR_KEY)) {
+    let repaired = 0;
+    for (const [id, stat] of Object.entries(records)) {
+      if (stat.lastWrong === false && stat.wrong > 0) {
+        stat.lastWrong = null;
+        repaired++;
+      }
+    }
+    if (repaired > 0) {
+      storageSetJSON(rk, records);
+      const meta = getRecordsMeta(authUid);
+      meta.localEditedAt = Date.now();
+      saveRecordsMeta(meta, authUid);
+    }
+    storageSetItem(REPAIR_KEY, '1');
+  }
+
   studyTime = loadStudyTimeLocal();
   studyCalendar = loadStudyCalendarLocal();
   calendarPendingSync = false;
