@@ -730,6 +730,8 @@ function isLastWrong(stat) {
 }
 
 function repairLastWrongData() {
+  const REPAIR_DONE = 'lastWrong_repair_v2';
+  if (storageGetItem(REPAIR_DONE)) return 0;
   let repaired = 0;
   for (const stat of Object.values(records)) {
     if (stat.lastWrong === false && stat.wrong > 0) {
@@ -742,6 +744,8 @@ function repairLastWrongData() {
     const rk = getRecordStorageKey(uid);
     storageSetJSON(rk, records);
     recordsPendingSync = true;
+  } else {
+    storageSetItem(REPAIR_DONE, '1');
   }
   return repaired;
 }
