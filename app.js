@@ -671,7 +671,7 @@ function normalizeRecordMap(map) {
       correct: Math.max(0, Number(stat?.correct || 0)),
       wrong: Math.max(0, Number(stat?.wrong || 0)),
       wrongDateKeys: normalizeWrongDateKeys(stat?.wrongDateKeys),
-      lastWrong: stat?.lastWrong != null ? !!stat.lastWrong : undefined,
+      lastWrong: !!stat?.lastWrong,
       review: normalizeReviewState(stat?.review),
       mastery: normalizeMasteryValue(stat?.mastery),
       masteryUpdatedAtMs: Math.max(0, Number(stat?.masteryUpdatedAtMs || 0))
@@ -704,8 +704,8 @@ function mergeRecordsNoLoss(localMap, remoteMap) {
         ...(local[id]?.wrongDateKeys || []),
         ...(remote[id]?.wrongDateKeys || [])
       ]),
-      lastWrong: (right.lastAnsweredAtMs >= left.lastAnsweredAtMs)
-        ? remote[id]?.lastWrong : local[id]?.lastWrong,
+      lastWrong: !!(right.lastAnsweredAtMs >= left.lastAnsweredAtMs
+        ? remote[id]?.lastWrong : local[id]?.lastWrong),
       review,
       mastery: masteryFromRemote
         ? normalizeMasteryValue(remote[id]?.mastery)
