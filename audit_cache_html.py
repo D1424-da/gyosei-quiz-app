@@ -50,11 +50,14 @@ from html import unescape
 from pathlib import Path
 
 from convert_to_oxquiz import get_scenario_text
+from quiz_utils import (
+    OUTPUT_DIR, CACHE_HTML_DIR, ALL_QUESTIONS_JSON, AUDIT_REPORT_JSON,
+    load_json, save_json, text_similarity,
+)
 
-DATA_DIR       = Path(__file__).parent / "output"
-CACHE_HTML_DIR = Path(__file__).parent / "cache" / "html"
-SRC_FILE       = DATA_DIR / "gyosyo_all_questions.json"
-REPORT_FILE    = DATA_DIR / "cache_audit_report.json"
+DATA_DIR    = OUTPUT_DIR
+SRC_FILE    = ALL_QUESTIONS_JSON
+REPORT_FILE = AUDIT_REPORT_JSON
 
 KATA = "アイウエオカキクケコ"
 

@@ -19,9 +19,10 @@ import json
 import re
 import argparse
 from pathlib import Path
+from quiz_utils import ALL_QUESTIONS_JSON, OXQUIZ_OUTPUT_JSON, load_json, save_json
 
-DEFAULT_INPUT  = "output/gyosyo_all_questions.json"
-DEFAULT_OUTPUT = "output/oxquiz_questions.json"
+DEFAULT_INPUT  = str(ALL_QUESTIONS_JSON)
+DEFAULT_OUTPUT = str(OXQUIZ_OUTPUT_JSON)
 
 # 肢テキストが「語句の組合せ答え」になっているパターン
 COMBO_ANS_PAT = re.compile(
@@ -219,8 +220,7 @@ def needs_correct_inversion(q: dict) -> bool:
 
 
 def convert(input_path: str, output_path: str) -> None:
-    with open(input_path, encoding="utf-8-sig") as f:
-        questions = json.load(f)
+    questions = load_json(input_path)
 
     ox_questions = []
     skip_counts = {}
@@ -287,8 +287,7 @@ def convert(input_path: str, output_path: str) -> None:
                 ox_q["scenarioText"] = scenario_text
             ox_questions.append(ox_q)
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(ox_questions, f, ensure_ascii=False, indent=2)
+    save_json(output_path, ox_questions)
 
     print(f"変換完了: {len(ox_questions)} 問 → {output_path}")
     print("スキップ内訳:")

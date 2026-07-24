@@ -16,6 +16,7 @@ normalize_categories.py
 import json
 import argparse
 from collections import Counter
+from quiz_utils import load_json, save_json, OXQUIZ_OUTPUT_JSON
 
 
 def build_maps():
@@ -100,8 +101,7 @@ def main():
 
     cat_map, top_map = build_maps()
 
-    with open(args.input, encoding='utf-8') as f:
-        data = json.load(f)
+    data = load_json(args.input)
 
     before = Counter(q.get('category', '') for q in data)
     changed = 0
@@ -138,8 +138,7 @@ def main():
         print(f'\n警告: topCategory未設定 = {sorted(unmapped)}')
 
     if not args.dry_run:
-        with open(args.output, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        save_json(args.output, data)
         print(f'\n保存: {args.output}')
     else:
         print('\n(--dry-run: ファイル未更新)')
