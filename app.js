@@ -28,7 +28,7 @@ function isFirestoreConnectivityError(error) {
   );
 }
 
- const KEY_QUESTIONS   = 'limb_questions';
+const KEY_QUESTIONS   = 'limb_questions';
 const KEY_RECORDS     = 'limb_records';    // パーユーザーキー: limb_records_<uid>
 const KEY_RECORDS_META = 'limb_records_meta'; // パーユーザーキー: limb_records_meta_<uid>
 const KEY_STUDY_GOAL  = 'limb_study_goal'; // パーユーザーキー: limb_study_goal_<uid>
@@ -82,6 +82,19 @@ let studySessionSnapshotCache = {};
 
 
 // ── ユーティリティ ───────────────────────────────────────────
+
+// DOM ヘルパー: getElementById の短縮 + null 安全
+function $(id) { return $(id); }
+function $$(sel) { return $$(sel); }
+function setVisible(el, visible) {
+  if (!el) return;
+  el.classList.toggle('hidden', !visible);
+}
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
+
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
 
 const useLocalStorage = true;
@@ -283,11 +296,11 @@ function normalizeMasteryValue(value) {
 
 function getStudyFilters() {
   return {
-    subject: document.getElementById('filter-subject')?.value || '',
-    category: document.getElementById('filter-category')?.value || '',
-    yearFrom: document.getElementById('filter-year-from')?.value || '',
-    yearTo: document.getElementById('filter-year-to')?.value || '',
-    mode: document.getElementById('filter-mode')?.value || 'all'
+    subject: $('filter-subject')?.value || '',
+    category: $('filter-category')?.value || '',
+    yearFrom: $('filter-year-from')?.value || '',
+    yearTo: $('filter-year-to')?.value || '',
+    mode: $('filter-mode')?.value || 'all'
   };
 }
 
@@ -313,11 +326,11 @@ function normalizeCategoryLabel(category) {
 }
 
 function setStudyFilters(filters = {}) {
-  const subjectEl = document.getElementById('filter-subject');
-  const categoryEl = document.getElementById('filter-category');
-  const yearFromEl = document.getElementById('filter-year-from');
-  const yearToEl = document.getElementById('filter-year-to');
-  const modeEl = document.getElementById('filter-mode');
+  const subjectEl = $('filter-subject');
+  const categoryEl = $('filter-category');
+  const yearFromEl = $('filter-year-from');
+  const yearToEl = $('filter-year-to');
+  const modeEl = $('filter-mode');
 
   if (subjectEl) subjectEl.value = filters.subject || '';
   if (categoryEl && subjectEl) {
@@ -386,7 +399,7 @@ function normalizeStudySessionSnapshot(snapshot) {
 }
 
 function updateResumeSessionButton() {
-  const btn = document.getElementById('btn-resume-session');
+  const btn = $('btn-resume-session');
   if (!btn) return;
   if (session) {
     btn.classList.add('hidden');
@@ -484,8 +497,8 @@ async function restoreLastStudySession() {
     resumeEligible: true
   };
   showPage('study');
-  document.getElementById('session-info').classList.remove('hidden');
-  document.getElementById('btn-start').textContent = '最初から';
+  $('session-info').classList.remove('hidden');
+  $('btn-start').textContent = '最初から';
   startStudyTimerIfNeeded();
   renderCurrentLimb();
   return true;
@@ -701,7 +714,7 @@ function mergeRecordsNoLoss(localMap, remoteMap) {
 }
 
 function setMasteryCountBarVisible(visible) {
-  const bar = document.getElementById('mastery-count-bar');
+  const bar = $('mastery-count-bar');
   if (!bar) return;
   bar.classList.toggle('hidden', !visible);
 }
@@ -717,12 +730,9 @@ function updateMasteryCounts() {
     if (Math.max(0, Number(stat?.wrong || 0)) > 0) wrong++;
   }
 
-  const elPerfect = document.getElementById('count-perfect');
-  const elAmbiguous = document.getElementById('count-ambiguous');
-  const elWrong = document.getElementById('count-wrong');
-  if (elPerfect) elPerfect.textContent = `完璧: ${perfect}`;
-  if (elAmbiguous) elAmbiguous.textContent = `あいまい: ${ambiguous}`;
-  if (elWrong) elWrong.textContent = `まちがえたもの: ${wrong}`;
+  setText('count-perfect', `完璧: ${perfect}`);
+  setText('count-ambiguous', `あいまい: ${ambiguous}`);
+  setText('count-wrong', `まちがえたもの: ${wrong}`);
 }
 
 function calcStudyStreak() {
@@ -740,10 +750,10 @@ function calcStudyStreak() {
 }
 
 function renderStudyGoalPanel() {
-  const panel = document.getElementById('study-goal-panel');
-  const progressEl = document.getElementById('today-goal-progress');
-  const streakEl = document.getElementById('study-streak');
-  const goalInput = document.getElementById('study-goal-value');
+  const panel = $('study-goal-panel');
+  const progressEl = $('today-goal-progress');
+  const streakEl = $('study-streak');
+  const goalInput = $('study-goal-value');
   if (!panel || !progressEl || !streakEl || !goalInput) return;
 
   const loggedIn = !!getAuthUid();
@@ -966,7 +976,7 @@ async function pushQuestionsToCloud() {
 }
 
 function tryRenderStatsIfOpen() {
-  const pageStats = document.getElementById('page-stats');
+  const pageStats = $('page-stats');
   if (!pageStats || !pageStats.classList.contains('active')) return;
   if (typeof renderStats === 'function') renderStats();
 }
@@ -1264,11 +1274,16 @@ async function flushRecordsToCloudIfNeeded() {
 function addPendingRecordDelta(limbId, isCorrect) {
   const key = String(limbId || '');
   if (!key) return;
-  if (!pendingRecordDeltas[key]) {
-    pendingRecordDeltas[key] = { correct: 0, wrong: 0 };
+
+  // 同じセッション内で同じ肢に対して複数回答える場合、最後の答えだけを反映
+  // 前回の記録がある場合は初期化して上書き
+  pendingRecordDeltas[key] = { correct: 0, wrong: 0 };
+
+  if (isCorrect) {
+    pendingRecordDeltas[key].correct = 1;
+  } else {
+    pendingRecordDeltas[key].wrong = 1;
   }
-  if (isCorrect) pendingRecordDeltas[key].correct += 1;
-  else pendingRecordDeltas[key].wrong += 1;
 }
 
 function mergePendingRecordDeltas(target, source) {
@@ -1550,8 +1565,8 @@ async function flushStudySessionSnapshotToCloudIfNeeded() {
 }
 
 function renderStudyCalendar() {
-  const monthEl = document.getElementById('study-calendar-month');
-  const gridEl = document.getElementById('study-calendar-grid');
+  const monthEl = $('study-calendar-month');
+  const gridEl = $('study-calendar-grid');
   if (!monthEl || !gridEl) return;
 
   const year = studyCalendarCursor.getFullYear();
@@ -1941,7 +1956,7 @@ function refreshSessionQueueAfterQuestionUpdate() {
   }
   saveStudySessionSnapshot();
 
-  const studyPage = document.getElementById('page-study');
+  const studyPage = $('page-study');
   if (studyPage && studyPage.classList.contains('active')) {
     renderCurrentLimb();
   }
@@ -2096,13 +2111,13 @@ async function initFileStorage() {
 }
 
 function updateFileStatus() {
-  const statusEl   = document.getElementById('file-status');
+  const statusEl   = $('file-status');
   if (!statusEl) return;
-  const reconnBar  = document.getElementById('file-reconnect-bar');
-  const btnNew     = document.getElementById('btn-new-data-file');
-  const btnOpen    = document.getElementById('btn-open-data-file');
-  const btnDisconn = document.getElementById('btn-disconnect-file');
-  const fsNote     = document.getElementById('fs-not-supported');
+  const reconnBar  = $('file-reconnect-bar');
+  const btnNew     = $('btn-new-data-file');
+  const btnOpen    = $('btn-open-data-file');
+  const btnDisconn = $('btn-disconnect-file');
+  const fsNote     = $('fs-not-supported');
   if (!FS_SUPPORTED) {
     if (fsNote)     fsNote.classList.remove('hidden');
     if (btnNew)     btnNew.disabled = true;
@@ -2171,24 +2186,24 @@ async function logout() {
 
 function showLoginOverlay() {
   // Show login form by default (Firebase auth-module.js handles form switching)
-  const loginFormArea = document.getElementById('login-form-area');
-  const registerFormArea = document.getElementById('register-form-area');
-  const resetFormArea = document.getElementById('reset-form-area');
+  const loginFormArea = $('login-form-area');
+  const registerFormArea = $('register-form-area');
+  const resetFormArea = $('reset-form-area');
   
   if (loginFormArea) loginFormArea.classList.remove('hidden');
   if (registerFormArea) registerFormArea.classList.add('hidden');
   if (resetFormArea) resetFormArea.classList.add('hidden');
   
-  document.getElementById('app').classList.add('hidden');
-  document.getElementById('login-overlay').classList.remove('hidden');
+  $('app').classList.add('hidden');
+  $('login-overlay').classList.remove('hidden');
   
   // Clear form fields if they exist (use Firebase form element IDs)
-  const loginEmail = document.getElementById('login-email');
-  const loginPassword = document.getElementById('login-password');
-  const regEmail = document.getElementById('reg-email');
-  const regPassword = document.getElementById('reg-password');
-  const regPassword2 = document.getElementById('reg-password2');
-  const resetEmail = document.getElementById('reset-email');
+  const loginEmail = $('login-email');
+  const loginPassword = $('login-password');
+  const regEmail = $('reg-email');
+  const regPassword = $('reg-password');
+  const regPassword2 = $('reg-password2');
+  const resetEmail = $('reset-email');
   
   if (loginEmail) loginEmail.value = '';
   if (loginPassword) loginPassword.value = '';
@@ -2206,9 +2221,9 @@ function hideLoginOverlay() {
   updateMembersOnlyPanels();
   requestAnimationFrame(updateMembersOnlyPanels);
 
-  document.getElementById('login-overlay').classList.add('hidden');
-  document.getElementById('app').classList.remove('hidden');
-  document.getElementById('current-user-name').textContent = currentUser?.displayName || currentUser?.email || '';
+  $('login-overlay').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('current-user-name').textContent = currentUser?.displayName || currentUser?.email || '';
   const activePage = document.querySelector('.page.active')?.id || 'page-study';
   setMasteryCountBarVisible(!!getAuthUid() && activePage === 'page-study');
   updateMasteryCounts();
@@ -2226,7 +2241,7 @@ function renderUsers() {
         : `<button class="btn btn-danger btn-sm" onclick="deleteUserById('${esc(u.id)}')">\u524a\u9664</button>`}
     </div>
   `).join('');
-  document.getElementById('user-list').innerHTML = html || '<p class="users-empty">ユーザーなし</p>';
+  $('user-list').innerHTML = html || '<p class="users-empty">ユーザーなし</p>';
 }
 
 function deleteUserById(id) {
@@ -2242,39 +2257,39 @@ function deleteUserById(id) {
 // ── パスワードリセット・変更 ─────────────────────────────────────
 
 function showResetForm() {
-  document.getElementById('reset-error').classList.add('hidden');
-  document.getElementById('reset-fields').classList.add('hidden');
-  document.getElementById('btn-do-reset').classList.add('hidden');
-  document.getElementById('reset-pw').value = '';
-  document.getElementById('reset-pw2').value = '';
+  $('reset-error').classList.add('hidden');
+  $('reset-fields').classList.add('hidden');
+  $('btn-do-reset').classList.add('hidden');
+  $('reset-pw').value = '';
+  $('reset-pw2').value = '';
 
   if (fileHandle) {
     // ファイル接続済み → 自動でユーザー一覧を表示
-    document.getElementById('reset-verify-status').textContent = `接続中: ${fileHandle.name}`;
-    document.getElementById('reset-verify-status').style.color = 'var(--success)';
-    document.getElementById('btn-reset-open-file').classList.add('hidden');
+    $('reset-verify-status').textContent = `接続中: ${fileHandle.name}`;
+    $('reset-verify-status').style.color = 'var(--success)';
+    $('btn-reset-open-file').classList.add('hidden');
     populateResetUserList(getUsers());
   } else {
-    document.getElementById('reset-verify-status').textContent = '';
-    document.getElementById('btn-reset-open-file').classList.remove('hidden');
+    $('reset-verify-status').textContent = '';
+    $('btn-reset-open-file').classList.remove('hidden');
   }
 
-  document.getElementById('login-form-area').classList.add('hidden');
-  document.getElementById('register-form-area').classList.add('hidden');
-  document.getElementById('reset-form-area').classList.remove('hidden');
+  $('login-form-area').classList.add('hidden');
+  $('register-form-area').classList.add('hidden');
+  $('reset-form-area').classList.remove('hidden');
 }
 
 function populateResetUserList(users) {
   if (!users || users.length === 0) {
-    document.getElementById('reset-verify-status').textContent = 'ユーザーが登録されていません';
-    document.getElementById('reset-verify-status').style.color = 'var(--danger)';
+    $('reset-verify-status').textContent = 'ユーザーが登録されていません';
+    $('reset-verify-status').style.color = 'var(--danger)';
     return;
   }
   // 一覧は表示せず、ユーザー名入力欄だけ開放
-  document.getElementById('reset-fields').classList.remove('hidden');
-  document.getElementById('btn-do-reset').classList.remove('hidden');
-  document.getElementById('reset-username').value = '';
-  document.getElementById('reset-username').focus();
+  $('reset-fields').classList.remove('hidden');
+  $('btn-do-reset').classList.remove('hidden');
+  $('reset-username').value = '';
+  $('reset-username').focus();
 }
 
 async function resetPassword(name, pw, pw2) {
@@ -2303,13 +2318,13 @@ async function changePassword(oldPw, newPw, newPw2) {
 }
 
 function showChangePwForm() {
-  document.getElementById('change-pw-old').value = '';
-  document.getElementById('change-pw-new').value = '';
-  document.getElementById('change-pw-new2').value = '';
-  document.getElementById('change-pw-error').classList.add('hidden');
-  document.getElementById('add-user-form').classList.add('hidden');
-  document.getElementById('change-pw-form').classList.remove('hidden');
-  document.getElementById('change-pw-old').focus();
+  $('change-pw-old').value = '';
+  $('change-pw-new').value = '';
+  $('change-pw-new2').value = '';
+  $('change-pw-error').classList.add('hidden');
+  $('add-user-form').classList.add('hidden');
+  $('change-pw-form').classList.remove('hidden');
+  $('change-pw-old').focus();
 }
 
 function getRecord(limbId) {
@@ -2517,13 +2532,13 @@ function updateMembersOnlyPanels() {
   const canManage = typeof isAdminUser === 'function' ? isAdminUser() : false;
 
   // 管理者導線は管理者ユーザーのみに表示
-  const navAdminBtn = document.getElementById('nav-admin-btn');
-  const navManageBtn = document.getElementById('nav-manage-btn');
+  const navAdminBtn = $('nav-admin-btn');
+  const navManageBtn = $('nav-manage-btn');
   if (navAdminBtn) navAdminBtn.classList.toggle('hidden', !canManage);
   if (navManageBtn) navManageBtn.classList.toggle('hidden', !canManage);
 
-  const studyCalendarSection = document.getElementById('study-calendar-section');
-  const studyCalendarGuestCta = document.getElementById('study-calendar-guest-cta');
+  const studyCalendarSection = $('study-calendar-section');
+  const studyCalendarGuestCta = $('study-calendar-guest-cta');
   if (studyCalendarSection) {
     if (loggedIn) studyCalendarSection.classList.remove('hidden');
     else studyCalendarSection.classList.add('hidden');
@@ -2533,11 +2548,11 @@ function updateMembersOnlyPanels() {
     else studyCalendarGuestCta.classList.remove('hidden');
   }
 
-  const adminPage = document.getElementById('page-admin');
+  const adminPage = $('page-admin');
   if (adminPage) adminPage.classList.toggle('hidden', !canManage);
 
-  const statsAuthContent = document.getElementById('stats-auth-content');
-  const statsGuestCta = document.getElementById('stats-guest-cta');
+  const statsAuthContent = $('stats-auth-content');
+  const statsGuestCta = $('stats-guest-cta');
   if (statsAuthContent) statsAuthContent.classList.toggle('hidden', !loggedIn);
   if (statsGuestCta) statsGuestCta.classList.toggle('hidden', loggedIn);
 
@@ -2548,7 +2563,7 @@ function openAuthOverlay(form = 'register') {
   if (typeof switchAuthForm === 'function') {
     switchAuthForm(form);
   }
-  const overlay = document.getElementById('login-overlay');
+  const overlay = $('login-overlay');
   if (overlay) overlay.classList.remove('hidden');
 }
 
@@ -2566,9 +2581,9 @@ async function showPage(name) {
     return;
   }
 
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById(`page-${name}`).classList.add('active');
+  $$('.page').forEach(p => p.classList.remove('active'));
+  $$('.nav-btn').forEach(b => b.classList.remove('active'));
+  $(`page-${name}`).classList.add('active');
   document.querySelector(`[data-page="${name}"]`).classList.add('active');
   updateMembersOnlyPanels();
   const loggedIn = !!getAuthUid();
@@ -2596,8 +2611,8 @@ function refreshFilterOptions() {
   const subjects = getSubjects();
 
   // 学習ページ
-  const fSubj = document.getElementById('filter-subject');
-  const fCat  = document.getElementById('filter-category');
+  const fSubj = $('filter-subject');
+  const fCat  = $('filter-category');
   const prevSubj = fSubj.value;
   fSubj.innerHTML = '<option value="">すべて</option>' + subjects.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   fSubj.value = prevSubj;
@@ -2607,7 +2622,7 @@ function refreshFilterOptions() {
   fCat.value = cats.includes(normalizeCategoryLabel(fCat.value)) ? normalizeCategoryLabel(fCat.value) : '';
 
   // 管理ページ
-  const mSubj = document.getElementById('manage-filter-subject');
+  const mSubj = $('manage-filter-subject');
   const mPrev = mSubj.value;
   mSubj.innerHTML = '<option value="">すべての科目</option>' + subjects.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
   mSubj.value = mPrev;
@@ -2617,16 +2632,16 @@ function refreshFilterOptions() {
   const yearOptions = '<option value="">指定なし</option>' +
     years.map(y => `<option value="${y}">${y}（${yearLabel(y)}）</option>`).join('');
   ['filter-year-from', 'filter-year-to', 'manage-year-from', 'manage-year-to'].forEach(id => {
-    const el = document.getElementById(id);
+    const el = $(id);
     const prev = el.value;
     el.innerHTML = yearOptions;
     if ([...el.options].some(o => o.value === prev)) el.value = prev;
   });
 
   // フォーム用 datalist
-  document.getElementById('subject-list').innerHTML  = subjects.map(s => `<option value="${esc(s)}">`).join('');
+  $('subject-list').innerHTML  = subjects.map(s => `<option value="${esc(s)}">`).join('');
   const allCats = getCategories();
-  document.getElementById('category-list').innerHTML = allCats.map(c => `<option value="${esc(c)}">`).join('');
+  $('category-list').innerHTML = allCats.map(c => `<option value="${esc(c)}">`).join('');
 }
 
 // ── 学習セッション ────────────────────────────────────────────
@@ -2686,8 +2701,8 @@ function startSession() {
 
   session = { queue: limbs, index: 0, fromPage: 'study', filters, answeredCount: 0, resumeEligible: true };
   startStudyTimerIfNeeded();
-  document.getElementById('session-info').classList.remove('hidden');
-  document.getElementById('btn-start').textContent = '最初から';
+  $('session-info').classList.remove('hidden');
+  $('btn-start').textContent = '最初から';
   saveStudySessionSnapshot();
   renderCurrentLimb();
 }
@@ -2708,8 +2723,8 @@ function startSessionWithLimbId(limbId) {
   session = { queue: [target], index: 0, fromPage: 'stats', filters: getStudyFilters(), answeredCount: 0, resumeEligible: false };
   startStudyTimerIfNeeded();
   showPage('study');
-  document.getElementById('session-info').classList.remove('hidden');
-  document.getElementById('btn-start').textContent = '最初から';
+  $('session-info').classList.remove('hidden');
+  $('btn-start').textContent = '最初から';
   saveStudySessionSnapshot();
   renderCurrentLimb();
 }
@@ -2721,9 +2736,9 @@ function endSession(opts = {}) {
   stopStudyTimerAndAccumulate();
   flushStudyTimePendingToCloud();
   session = null;
-  document.getElementById('session-info').classList.add('hidden');
-  document.getElementById('btn-start').textContent = '学習開始';
-  document.getElementById('limb-area').innerHTML = '<div id="empty-state" class="empty-state"><p>「学習開始」を押して問題を始めましょう。</p></div>';
+  $('session-info').classList.add('hidden');
+  $('btn-start').textContent = '学習開始';
+  $('limb-area').innerHTML = '<div id="empty-state" class="empty-state"><p>「学習開始」を押して問題を始めましょう。</p></div>';
   if (!resumeEligible) {
     updateResumeSessionButton();
     return;
@@ -2740,9 +2755,9 @@ function renderCurrentLimb() {
   const { queue, index } = session;
 
   // 進捗更新
-  document.getElementById('progress-text').textContent = `${index + 1} / ${queue.length}`;
+  $('progress-text').textContent = `${index + 1} / ${queue.length}`;
   const pct = ((index + 1) / queue.length * 100).toFixed(1);
-  document.getElementById('progress-bar').style.width = pct + '%';
+  $('progress-bar').style.width = pct + '%';
   saveStudySessionSnapshot();
 
   if (index >= queue.length) {
@@ -2794,7 +2809,7 @@ function renderCurrentLimb() {
       </div>
     `;
 
-  const area = document.getElementById('limb-area');
+  const area = $('limb-area');
   area.innerHTML = `
     <div class="limb-card card">
       ${limb.source ? `<div class="limb-meta"><span class="badge badge-source">${esc(limb.source)}</span> <span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>` : `<div class="limb-meta"><span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>`}
@@ -2809,8 +2824,8 @@ function renderCurrentLimb() {
   if (isInlineOxQuestion) {
     startStudyTimerIfNeeded(true);
     const groups = [...area.querySelectorAll('.inline-ox-group')];
-    const statusEl = document.getElementById('inline-ox-status');
-    const nextBtn = document.getElementById('btn-inline-next');
+    const statusEl = $('inline-ox-status');
+    const nextBtn = $('btn-inline-next');
     let finalized = false;
     let finalIsCorrect = false;
 
@@ -2879,8 +2894,8 @@ function renderCurrentLimb() {
 
   if (isTextAnswerQuestion) {
     startStudyTimerIfNeeded(true);
-    const input = document.getElementById('text-answer-input');
-    const submit = document.getElementById('btn-text-answer-submit');
+    const input = $('text-answer-input');
+    const submit = $('btn-text-answer-submit');
     const handleSubmit = () => {
       const userAnswer = input.value.trim();
       if (!userAnswer) {
@@ -2918,11 +2933,11 @@ function renderCurrentLimb() {
 }
 
 function showResult(limb, isCorrect, detailHtml = '', opts = {}) {
-  const overlay = document.getElementById('modal-result');
-  const btnNext = document.getElementById('btn-result-next');
-  const masteryActions = document.getElementById('result-mastery-actions');
-  const btnPerfect = document.getElementById('btn-mark-perfect');
-  const btnAmbiguous = document.getElementById('btn-mark-ambiguous');
+  const overlay = $('modal-result');
+  const btnNext = $('btn-result-next');
+  const masteryActions = $('result-mastery-actions');
+  const btnPerfect = $('btn-mark-perfect');
+  const btnAmbiguous = $('btn-mark-ambiguous');
   const advanceSession = opts.advanceSession !== false;
   overlay.dataset.advanceSession = advanceSession ? '1' : '0';
   overlay.dataset.requireMastery = '0';
@@ -2930,8 +2945,8 @@ function showResult(limb, isCorrect, detailHtml = '', opts = {}) {
   overlay.dataset.currentLimbId = String(limb?.id || '');
   btnNext.textContent = advanceSession ? '次の肢へ' : '閉じる';
   btnNext.disabled = false;
-  document.getElementById('result-icon').textContent        = isCorrect ? '✅ 正解！' : '❌ 不正解';
-  document.getElementById('result-icon').className          = 'result-icon ' + (isCorrect ? 'correct' : 'wrong');
+  $('result-icon').textContent        = isCorrect ? '✅ 正解！' : '❌ 不正解';
+  $('result-icon').className          = 'result-icon ' + (isCorrect ? 'correct' : 'wrong');
   const isChoiceQuestion = Array.isArray(limb.options) && limb.options.length >= 2;
   const isTextAnswerQuestion = isTextQuestion(limb);
   const inlineItems = parseInlineOxItems(limb.text || '');
@@ -2945,7 +2960,7 @@ function showResult(limb, isCorrect, detailHtml = '', opts = {}) {
       ? '文中〇×（各所の判定）'
     : (limb.correct ? '正しい（○）' : '誤り（×）');
   const explanation  = limb.explanation || '（解説なし）';
-  document.getElementById('result-explanation').innerHTML   =
+  $('result-explanation').innerHTML   =
     `<strong>正解：${correctLabel}</strong>${detailHtml ? `<br><br>${detailHtml}` : ''}<br><br>${esc(explanation)}`;
 
   const shouldRequireMastery = isCorrect && advanceSession;
@@ -2973,7 +2988,7 @@ function showResult(limb, isCorrect, detailHtml = '', opts = {}) {
 }
 
 function showCompletionMessage() {
-  const area = document.getElementById('limb-area');
+  const area = $('limb-area');
   area.innerHTML = `<div class="empty-state card"><p>🎉 セッション完了！<br>お疲れさまでした。</p><button class="btn btn-primary" onclick="startSession()">もう一度</button></div>`;
 }
 
@@ -2981,10 +2996,10 @@ function showCompletionMessage() {
 function renderManage(resetPage = false) {
   if (resetPage) managePage = 0;
   refreshFilterOptions();
-  const keyword  = document.getElementById('search-manage').value.toLowerCase();
-  const subject  = document.getElementById('manage-filter-subject').value;
-  const yearFrom = document.getElementById('manage-year-from').value;
-  const yearTo   = document.getElementById('manage-year-to').value;
+  const keyword  = $('search-manage').value.toLowerCase();
+  const subject  = $('manage-filter-subject').value;
+  const yearFrom = $('manage-year-from').value;
+  const yearTo   = $('manage-year-to').value;
 
   const filtered = questions.filter(q => {
     if (subject && q.subject !== subject) return false;
@@ -3003,10 +3018,10 @@ function renderManage(resetPage = false) {
     return true;
   });
 
-  const list = document.getElementById('question-list');
+  const list = $('question-list');
   if (filtered.length === 0) {
     list.innerHTML = '<p class="empty-state">問題がありません。「問題追加」から登録してください。</p>';
-    document.getElementById('manage-pagination').classList.add('hidden');
+    $('manage-pagination').classList.add('hidden');
     updateBulkDeleteBtn();
     return;
   }
@@ -3015,10 +3030,10 @@ function renderManage(resetPage = false) {
   managePage = Math.min(managePage, totalPages - 1);
   const pageItems = filtered.slice(managePage * MANAGE_PAGE_SIZE, (managePage + 1) * MANAGE_PAGE_SIZE);
 
-  const pagination = document.getElementById('manage-pagination');
-  const pageInfo   = document.getElementById('manage-page-info');
-  const prevBtn    = document.getElementById('btn-manage-prev');
-  const nextBtn    = document.getElementById('btn-manage-next');
+  const pagination = $('manage-pagination');
+  const pageInfo   = $('manage-page-info');
+  const prevBtn    = $('btn-manage-prev');
+  const nextBtn    = $('btn-manage-next');
   pagination.classList.toggle('hidden', totalPages <= 1);
   pageInfo.textContent = `${managePage + 1} / ${totalPages} ページ（全${filtered.length}件）`;
   prevBtn.disabled = managePage === 0;
@@ -3059,8 +3074,8 @@ function renderManage(resetPage = false) {
           </div>
         </div>
         <div class="manage-card-actions">
-          <button class="btn btn-ghost btn-sm" onclick="openEditModal('${q.id}')">✏️ 編集</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${q.id}')">🗑 削除</button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditModal('${esc(q.id)}')">✏️ 編集</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteQuestion('${esc(q.id)}')">🗑 削除</button>
         </div>
       </div>
       ${q.questionText ? `<div class="manage-question-text">${esc(q.questionText)}</div>` : ''}
@@ -3080,7 +3095,7 @@ function deleteQuestion(id) {
 }
 
 function bulkDeleteSelected() {
-  const checked = document.querySelectorAll('.manage-chk:checked');
+  const checked = $$('.manage-chk:checked');
   if (checked.length === 0) return;
   if (!confirm(`選択した ${checked.length} 件の問題を削除しますか？`)) return;
   const ids = new Set([...checked].map(c => c.dataset.id));
@@ -3091,12 +3106,12 @@ function bulkDeleteSelected() {
 }
 
 function updateBulkDeleteBtn() {
-  const all     = document.querySelectorAll('.manage-chk');
-  const checked = document.querySelectorAll('.manage-chk:checked');
+  const all     = $$('.manage-chk');
+  const checked = $$('.manage-chk:checked');
   const count   = checked.length;
-  const label   = document.getElementById('bulk-count-label');
-  const btn     = document.getElementById('btn-bulk-delete');
-  const chkAll  = document.getElementById('chk-select-all');
+  const label   = $('bulk-count-label');
+  const btn     = $('btn-bulk-delete');
+  const chkAll  = $('chk-select-all');
   label.textContent       = count > 0 ? `${count} 件選択中` : '';
   btn.disabled            = count === 0;
   chkAll.checked          = all.length > 0 && count === all.length;
@@ -3108,33 +3123,33 @@ let editingQuestionId = null;
 
 function openAddModal() {
   editingQuestionId = null;
-  document.getElementById('modal-title').textContent = '問題を追加';
-  document.getElementById('form-question').reset();
-  document.getElementById('edit-question-id').value = '';
+  $('modal-title').textContent = '問題を追加';
+  $('form-question').reset();
+  $('edit-question-id').value = '';
   resetLimbsEditor([{ text: '', correct: true, explanation: '', options: [], correctText: '', inlineOxWrong: [] }]);
-  document.getElementById('modal-question').classList.remove('hidden');
+  $('modal-question').classList.remove('hidden');
 }
 
 function openEditModal(id) {
   const q = questions.find(q => q.id === id);
   if (!q) return;
   editingQuestionId = id;
-  document.getElementById('modal-title').textContent = '問題を編集';
-  document.getElementById('edit-question-id').value  = id;
-  document.getElementById('input-subject').value     = q.subject || '';
-  document.getElementById('input-category').value    = normalizeCategoryLabel(q.category || '');
-  document.getElementById('input-source').value      = q.source || '';
-  document.getElementById('input-question-text').value = q.questionText || '';
+  $('modal-title').textContent = '問題を編集';
+  $('edit-question-id').value  = id;
+  $('input-subject').value     = q.subject || '';
+  $('input-category').value    = normalizeCategoryLabel(q.category || '');
+  $('input-source').value      = q.source || '';
+  $('input-question-text').value = q.questionText || '';
   resetLimbsEditor(q.limbs);
-  document.getElementById('modal-question').classList.remove('hidden');
+  $('modal-question').classList.remove('hidden');
 }
 
 function closeModal() {
-  document.getElementById('modal-question').classList.add('hidden');
+  $('modal-question').classList.add('hidden');
 }
 
 function resetLimbsEditor(limbs) {
-  const editor = document.getElementById('limbs-editor');
+  const editor = $('limbs-editor');
   editor.innerHTML = '';
   limbs.forEach(l => addLimbRow(editor, l));
 }
@@ -3237,7 +3252,7 @@ function addLimbRow(editor, limb = { text: '', correct: true, explanation: '', o
 }
 
 function getLimbsFromEditor() {
-  return [...document.querySelectorAll('#limbs-editor .limb-row')].map(row => {
+  return [...$$('#limbs-editor .limb-row')].map(row => {
     const answerType = row.querySelector('.limb-answer-type-select').value;
     const options = row.querySelector('.limb-options-input').value
       .split('\n')
@@ -3264,10 +3279,10 @@ function getLimbsFromEditor() {
 
 function saveQuestion(e) {
   e.preventDefault();
-  const subject      = document.getElementById('input-subject').value.trim();
-  const category     = normalizeCategoryLabel(document.getElementById('input-category').value.trim());
-  const source       = document.getElementById('input-source').value.trim();
-  const questionText = document.getElementById('input-question-text').value.trim();
+  const subject      = $('input-subject').value.trim();
+  const category     = normalizeCategoryLabel($('input-category').value.trim());
+  const source       = $('input-source').value.trim();
+  const questionText = $('input-question-text').value.trim();
 
   if (!subject) { alert('試験・科目を入力してください。'); return; }
 
@@ -3519,8 +3534,8 @@ function renderStats() {
   updateMembersOnlyPanels();
   if (!getAuthUid()) return;
 
-  const weakHideHighRateEl = document.getElementById('weak-hide-high-rate');
-  const weakThresholdEl = document.getElementById('weak-hide-threshold');
+  const weakHideHighRateEl = $('weak-hide-high-rate');
+  const weakThresholdEl = $('weak-hide-threshold');
   const hideHighRate = !!weakHideHighRateEl?.checked;
   const threshold = [60, 70, 80, 90, 95].includes(Number(weakThresholdEl?.value))
     ? Number(weakThresholdEl.value)
@@ -3545,15 +3560,14 @@ function renderStats() {
 
   const rate = total > 0 ? Math.round(correct / total * 100) : null;
 
-  document.getElementById('stat-total').textContent  = total;
-  document.getElementById('stat-rate').textContent   = rate !== null ? rate + '%' : '-%';
-  document.getElementById('stat-limbs').textContent  = answeredCount;
-  document.getElementById('stat-weak').textContent   = weakCount;
-  const studyEl = document.getElementById('stat-study-time');
-  if (studyEl) studyEl.textContent = formatStudyDuration(studyTime.totalMs);
+  setText('stat-total', total);
+  setText('stat-rate', rate !== null ? rate + '%' : '-%');
+  setText('stat-limbs', answeredCount);
+  setText('stat-weak', weakCount);
+  setText('stat-study-time', formatStudyDuration(studyTime.totalMs));
   renderStudyCalendar();
 
-  const dailyStudyListEl = document.getElementById('daily-study-count-list');
+  const dailyStudyListEl = $('daily-study-count-list');
   if (dailyStudyListEl) {
     const dailyRows = getRecentDailyStudyCounts(14);
     dailyStudyListEl.innerHTML = dailyRows.length > 0
@@ -3578,7 +3592,7 @@ function renderStats() {
       <span class="subject-rate">${t > 0 ? rt + '%' : '-'}</span>
     </div>`;
   }).join('');
-  document.getElementById('subject-stats').innerHTML = subjectHtml || '<p>データなし</p>';
+  $('subject-stats').innerHTML = subjectHtml || '<p>データなし</p>';
 
   // 苦手肢トップ50
   const weakSorted = allLimbs
@@ -3610,7 +3624,7 @@ function renderStats() {
       </div>
     </div>`;
   }).join('');
-  document.getElementById('weak-limbs-list').innerHTML = weakHtml || '<p>苦手肢なし</p>';
+  $('weak-limbs-list').innerHTML = weakHtml || '<p>苦手肢なし</p>';
   renderStudyGoalPanel();
 }
 
@@ -3682,22 +3696,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // パスワードリセットは Firebase 版 UI/auth-module.js 側で処理
 
   // ユーザー追加フォーム
-  document.getElementById('btn-show-add-user').addEventListener('click', () => {
-    document.getElementById('new-user-name').value = '';
-    document.getElementById('new-user-pw').value = '';
-    document.getElementById('new-user-pw2').value = '';
-    document.getElementById('add-user-error').classList.add('hidden');
-    document.getElementById('add-user-form').classList.remove('hidden');
-    document.getElementById('new-user-name').focus();
+  $('btn-show-add-user').addEventListener('click', () => {
+    $('new-user-name').value = '';
+    $('new-user-pw').value = '';
+    $('new-user-pw2').value = '';
+    $('add-user-error').classList.add('hidden');
+    $('add-user-form').classList.remove('hidden');
+    $('new-user-name').focus();
   });
-  document.getElementById('btn-cancel-add-user').addEventListener('click', () => {
-    document.getElementById('add-user-form').classList.add('hidden');
+  $('btn-cancel-add-user').addEventListener('click', () => {
+    $('add-user-form').classList.add('hidden');
   });
-  document.getElementById('btn-add-user').addEventListener('click', async () => {
-    const name  = document.getElementById('new-user-name').value.trim();
-    const pw    = document.getElementById('new-user-pw').value;
-    const pw2   = document.getElementById('new-user-pw2').value;
-    const errEl = document.getElementById('add-user-error');
+  $('btn-add-user').addEventListener('click', async () => {
+    const name  = $('new-user-name').value.trim();
+    const pw    = $('new-user-pw').value;
+    const pw2   = $('new-user-pw2').value;
+    const errEl = $('add-user-error');
     errEl.classList.add('hidden');
     if (!name)         { errEl.textContent = 'ユーザー名を入力してください'; errEl.classList.remove('hidden'); return; }
     if (pw.length < 4) { errEl.textContent = 'パスワードは4文字以上'; errEl.classList.remove('hidden'); return; }
@@ -3706,32 +3720,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (users.find(u => u.name === name)) { errEl.textContent = 'そのユーザー名は既に使用中です'; errEl.classList.remove('hidden'); return; }
     users.push({ id: uid(), name, pwHash: await hashPassword(pw) });
     saveUsers(users);
-    document.getElementById('add-user-form').classList.add('hidden');
+    $('add-user-form').classList.add('hidden');
     renderUsers();
   });
 
   // パスワード変更
-  document.getElementById('btn-change-pw-cancel').addEventListener('click', () => {
-    document.getElementById('change-pw-form').classList.add('hidden');
+  $('btn-change-pw-cancel').addEventListener('click', () => {
+    $('change-pw-form').classList.add('hidden');
   });
-  document.getElementById('btn-change-pw-do').addEventListener('click', async () => {
-    const oldPw  = document.getElementById('change-pw-old').value;
-    const newPw  = document.getElementById('change-pw-new').value;
-    const newPw2 = document.getElementById('change-pw-new2').value;
-    const errEl  = document.getElementById('change-pw-error');
+  $('btn-change-pw-do').addEventListener('click', async () => {
+    const oldPw  = $('change-pw-old').value;
+    const newPw  = $('change-pw-new').value;
+    const newPw2 = $('change-pw-new2').value;
+    const errEl  = $('change-pw-error');
     errEl.classList.add('hidden');
     const err = await changePassword(oldPw, newPw, newPw2);
     if (err) {
       errEl.textContent = err;
       errEl.classList.remove('hidden');
     } else {
-      document.getElementById('change-pw-form').classList.add('hidden');
+      $('change-pw-form').classList.add('hidden');
       alert('パスワードを変更しました。');
     }
   });
 
   // ── ファイルストレージ ──────────────────────────────────────
-  document.getElementById('btn-new-data-file').addEventListener('click', async () => {
+  $('btn-new-data-file').addEventListener('click', async () => {
     try {
       const handle = await window.showSaveFilePicker({
         suggestedName: 'limb_data.json',
@@ -3743,7 +3757,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateFileStatus();
     } catch (e) { if (e.name !== 'AbortError') alert('ファイルの作成に失敗しました: ' + e.message); }
   });
-  document.getElementById('btn-open-data-file').addEventListener('click', async () => {
+  $('btn-open-data-file').addEventListener('click', async () => {
     try {
       const [handle] = await window.showOpenFilePicker({
         types: [{ description: 'JSONデータ', accept: { 'application/json': ['.json'] } }],
@@ -3753,7 +3767,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (currentUser) { renderManage(); renderUsers(); }
     } catch (e) { if (e.name !== 'AbortError') alert('ファイルを開けませんでした: ' + e.message); }
   });
-  document.getElementById('btn-reconnect-file').addEventListener('click', async () => {
+  $('btn-reconnect-file').addEventListener('click', async () => {
     if (!pendingHandle) return;
     try {
       const perm = await pendingHandle.requestPermission({ mode: 'readwrite' });
@@ -3764,7 +3778,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } catch (e) { alert('再接続に失敗しました: ' + e.message); }
   });
-  document.getElementById('btn-disconnect-file').addEventListener('click', async () => {
+  $('btn-disconnect-file').addEventListener('click', async () => {
     if (!confirm('ファイルとの接続を解除しますか？\nファイル本体は削除されません。')) return;
     fileHandle = null; pendingHandle = null;
     await IDB.del('dataFileHandle');
@@ -3772,11 +3786,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── 既存のイベント ────────────────────────────────────────
-  document.querySelectorAll('.nav-btn').forEach(btn => {
+  $$('.nav-btn').forEach(btn => {
     btn.addEventListener('click', () => showPage(btn.dataset.page));
   });
 
-  const btnOpenManageFromAdmin = document.getElementById('btn-open-manage-from-admin');
+  const btnOpenManageFromAdmin = $('btn-open-manage-from-admin');
   if (btnOpenManageFromAdmin) {
     btnOpenManageFromAdmin.addEventListener('click', () => showPage('manage'));
   }
@@ -3787,15 +3801,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     ['btn-open-register-from-calendar', 'register'],
     ['btn-open-login-from-calendar', 'login']
   ].forEach(([id, form]) => {
-    const btn = document.getElementById(id);
+    const btn = $(id);
     if (!btn) return;
     btn.addEventListener('click', () => openAuthOverlay(form));
   });
 
   updateMembersOnlyPanels();
 
-  const weakHideHighRateEl = document.getElementById('weak-hide-high-rate');
-  const weakThresholdEl = document.getElementById('weak-hide-threshold');
+  const weakHideHighRateEl = $('weak-hide-high-rate');
+  const weakThresholdEl = $('weak-hide-threshold');
   const weakListPref = getWeakListPref();
   if (weakHideHighRateEl) weakHideHighRateEl.checked = weakListPref.hideHighRate;
   if (weakThresholdEl) weakThresholdEl.value = String(weakListPref.threshold);
@@ -3821,12 +3835,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 学習ページ
-  document.getElementById('btn-start').addEventListener('click', startSession);
-  document.getElementById('btn-resume-session').addEventListener('click', restoreLastStudySession);
-  document.getElementById('btn-end-session').addEventListener('click', endSession);
+  $('btn-start').addEventListener('click', startSession);
+  $('btn-resume-session').addEventListener('click', restoreLastStudySession);
+  $('btn-end-session').addEventListener('click', endSession);
 
-  const goalInput = document.getElementById('study-goal-value');
-  const saveGoalBtn = document.getElementById('btn-save-goal');
+  const goalInput = $('study-goal-value');
+  const saveGoalBtn = $('btn-save-goal');
   if (goalInput) goalInput.value = String(loadStudyGoal());
   if (saveGoalBtn && goalInput) {
     saveGoalBtn.addEventListener('click', () => {
@@ -3836,30 +3850,30 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  const countPerfectBtn = document.getElementById('count-perfect');
-  const countAmbiguousBtn = document.getElementById('count-ambiguous');
-  const countWrongBtn = document.getElementById('count-wrong');
+  const countPerfectBtn = $('count-perfect');
+  const countAmbiguousBtn = $('count-ambiguous');
+  const countWrongBtn = $('count-wrong');
   if (countPerfectBtn) countPerfectBtn.addEventListener('click', () => jumpToStudyMode('perfect'));
   if (countAmbiguousBtn) countAmbiguousBtn.addEventListener('click', () => jumpToStudyMode('ambiguous'));
   if (countWrongBtn) countWrongBtn.addEventListener('click', () => jumpToStudyMode('wrong'));
 
-  document.getElementById('filter-subject').addEventListener('change', (e) => {
+  $('filter-subject').addEventListener('change', (e) => {
     const cats = getCategories(e.target.value);
-    const fCat = document.getElementById('filter-category');
+    const fCat = $('filter-category');
     fCat.innerHTML = '<option value="">すべて</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   });
 
   // 結果モーダル
-  const btnMarkPerfect = document.getElementById('btn-mark-perfect');
-  const btnMarkAmbiguous = document.getElementById('btn-mark-ambiguous');
+  const btnMarkPerfect = $('btn-mark-perfect');
+  const btnMarkAmbiguous = $('btn-mark-ambiguous');
   if (btnMarkPerfect) {
     btnMarkPerfect.addEventListener('click', () => {
-      const modal = document.getElementById('modal-result');
+      const modal = $('modal-result');
       const limbId = String(modal.dataset.currentLimbId || '');
       if (!limbId) return;
       setLimbMastery(limbId, 'perfect');
       modal.dataset.masterySelected = '1';
-      document.getElementById('btn-result-next').disabled = false;
+      $('btn-result-next').disabled = false;
       btnMarkPerfect.classList.add('is-selected');
       btnMarkAmbiguous?.classList.remove('is-selected');
       updateMasteryCounts();
@@ -3867,20 +3881,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   if (btnMarkAmbiguous) {
     btnMarkAmbiguous.addEventListener('click', () => {
-      const modal = document.getElementById('modal-result');
+      const modal = $('modal-result');
       const limbId = String(modal.dataset.currentLimbId || '');
       if (!limbId) return;
       setLimbMastery(limbId, 'ambiguous');
       modal.dataset.masterySelected = '1';
-      document.getElementById('btn-result-next').disabled = false;
+      $('btn-result-next').disabled = false;
       btnMarkAmbiguous.classList.add('is-selected');
       btnMarkPerfect?.classList.remove('is-selected');
       updateMasteryCounts();
     });
   }
 
-  document.getElementById('btn-result-next').addEventListener('click', () => {
-    const modal = document.getElementById('modal-result');
+  $('btn-result-next').addEventListener('click', () => {
+    const modal = $('modal-result');
     if (modal.dataset.requireMastery === '1' && modal.dataset.masterySelected !== '1') return;
     const shouldAdvance = modal.dataset.advanceSession !== '0';
     modal.classList.add('hidden');
@@ -3891,48 +3905,48 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 問題管理
-  document.getElementById('btn-add-question').addEventListener('click', openAddModal);
-  document.getElementById('btn-modal-cancel').addEventListener('click', closeModal);
-  document.getElementById('form-question').addEventListener('submit', saveQuestion);
-  document.getElementById('btn-add-limb').addEventListener('click', () => {
-    addLimbRow(document.getElementById('limbs-editor'));
+  $('btn-add-question').addEventListener('click', openAddModal);
+  $('btn-modal-cancel').addEventListener('click', closeModal);
+  $('form-question').addEventListener('submit', saveQuestion);
+  $('btn-add-limb').addEventListener('click', () => {
+    addLimbRow($('limbs-editor'));
   });
-  document.getElementById('search-manage').addEventListener('input', () => renderManage(true));
-  document.getElementById('manage-filter-subject').addEventListener('change', () => renderManage(true));
-  document.getElementById('manage-year-from').addEventListener('change', () => renderManage(true));
-  document.getElementById('manage-year-to').addEventListener('change', () => renderManage(true));
-  document.getElementById('btn-manage-prev').addEventListener('click', () => { managePage--; renderManage(); window.scrollTo(0,0); });
-  document.getElementById('btn-manage-next').addEventListener('click', () => { managePage++; renderManage(); window.scrollTo(0,0); });
+  $('search-manage').addEventListener('input', () => renderManage(true));
+  $('manage-filter-subject').addEventListener('change', () => renderManage(true));
+  $('manage-year-from').addEventListener('change', () => renderManage(true));
+  $('manage-year-to').addEventListener('change', () => renderManage(true));
+  $('btn-manage-prev').addEventListener('click', () => { managePage--; renderManage(); window.scrollTo(0,0); });
+  $('btn-manage-next').addEventListener('click', () => { managePage++; renderManage(); window.scrollTo(0,0); });
 
   // 全選択チェックボックス
-  document.getElementById('chk-select-all').addEventListener('change', e => {
-    document.querySelectorAll('.manage-chk').forEach(c => { c.checked = e.target.checked; });
+  $('chk-select-all').addEventListener('change', e => {
+    $$('.manage-chk').forEach(c => { c.checked = e.target.checked; });
     updateBulkDeleteBtn();
   });
   // 個別チェック変化（イベント委譲）
-  document.getElementById('question-list').addEventListener('change', e => {
+  $('question-list').addEventListener('change', e => {
     if (e.target.classList.contains('manage-chk')) updateBulkDeleteBtn();
   });
-  document.getElementById('btn-bulk-delete').addEventListener('click', bulkDeleteSelected);
+  $('btn-bulk-delete').addEventListener('click', bulkDeleteSelected);
 
   // インポート / エクスポート
-  document.getElementById('btn-export').addEventListener('click', exportJSON);
-  document.getElementById('btn-import').addEventListener('click', () => {
-    document.getElementById('import-file').value = '';
-    document.getElementById('import-file').click();
+  $('btn-export').addEventListener('click', exportJSON);
+  $('btn-import').addEventListener('click', () => {
+    $('import-file').value = '';
+    $('import-file').click();
   });
-  document.getElementById('import-file').addEventListener('change', (e) => {
+  $('import-file').addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) importJSONFiles(files);
   });
 
   // モーダル外クリックで閉じる
-  document.getElementById('modal-question').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('modal-question')) closeModal();
+  $('modal-question').addEventListener('click', (e) => {
+    if (e.target === $('modal-question')) closeModal();
   });
-  document.getElementById('modal-result').addEventListener('click', (e) => {
-    if (e.target === document.getElementById('modal-result')) {
-      const modal = document.getElementById('modal-result');
+  $('modal-result').addEventListener('click', (e) => {
+    if (e.target === $('modal-result')) {
+      const modal = $('modal-result');
       if (modal.dataset.requireMastery === '1' && modal.dataset.masterySelected !== '1') return;
       const shouldAdvance = modal.dataset.advanceSession !== '0';
       modal.classList.add('hidden');
@@ -3941,7 +3955,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 成績リセット
-  document.getElementById('btn-reset-stats').addEventListener('click', async () => {
+  $('btn-reset-stats').addEventListener('click', async () => {
     if (!confirm('すべての成績をリセットしますか？')) return;
     records = {};
     await resetStudyTime();
@@ -3949,18 +3963,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderStats();
   });
 
-  document.getElementById('btn-calendar-prev').addEventListener('click', () => {
+  $('btn-calendar-prev').addEventListener('click', () => {
     studyCalendarCursor = new Date(studyCalendarCursor.getFullYear(), studyCalendarCursor.getMonth() - 1, 1);
     renderStudyCalendar();
   });
 
-  document.getElementById('btn-calendar-next').addEventListener('click', () => {
+  $('btn-calendar-next').addEventListener('click', () => {
     studyCalendarCursor = new Date(studyCalendarCursor.getFullYear(), studyCalendarCursor.getMonth() + 1, 1);
     renderStudyCalendar();
   });
 
   // 苦手肢リストから再挑戦
-  const weakList = document.getElementById('weak-limbs-list');
+  const weakList = $('weak-limbs-list');
   weakList.addEventListener('click', (e) => {
     const row = e.target.closest('.weak-limb-row[data-limb-id]');
     if (!row) return;

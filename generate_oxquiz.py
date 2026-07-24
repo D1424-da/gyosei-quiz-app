@@ -20,6 +20,8 @@ import re
 import argparse
 from pathlib import Path
 
+from quiz_utils import ALL_QUESTIONS_JSON, API_OXQUIZ_JSON, load_json, save_json
+
 try:
     from google import genai
     from google.genai import types
@@ -29,8 +31,9 @@ except ImportError:
     sys.exit(1)
 
 # ---- 設定 ----
-DEFAULT_INPUT   = "output/gyosyo_all_questions.json"
-DEFAULT_OUTPUT  = "output/api_oxquiz_questions.json"
+
+DEFAULT_INPUT   = str(ALL_QUESTIONS_JSON)
+DEFAULT_OUTPUT  = str(API_OXQUIZ_JSON)
 PROGRESS_FILE   = "output/api_oxquiz_progress.json"
 MODEL           = "gemini-2.0-flash"
 REQUEST_DELAY   = 0.5   # sec between API calls (rate limit buffer)
