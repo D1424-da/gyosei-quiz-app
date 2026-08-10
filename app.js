@@ -729,13 +729,16 @@ function isLastWrong(stat) {
   return Math.max(0, Number(stat?.wrong || 0)) > 0;
 }
 
+const _repairedLimbIds = new Set();
+let _repairDone = false;
+
 function repairLastWrongData() {
-  const REPAIR_DONE = 'lastWrong_repair_v2';
-  if (storageGetItem(REPAIR_DONE)) return 0;
+  if (_repairDone) return 0;
   let repaired = 0;
-  for (const stat of Object.values(records)) {
-    if (stat.lastWrong === false && stat.wrong > 0) {
+  for (const [id, stat] of Object.entries(records)) {
+    if (stat.lastWrong === false && stat.wrong > 0 && !_repairedLimbIds.has(id)) {
       stat.lastWrong = null;
+      _repairedLimbIds.add(id);
       repaired++;
     }
   }
@@ -744,8 +747,8 @@ function repairLastWrongData() {
     const rk = getRecordStorageKey(uid);
     storageSetJSON(rk, records);
     recordsPendingSync = true;
-  } else {
-    storageSetItem(REPAIR_DONE, '1');
+  } else if (_repairedLimbIds.size > 0) {
+    _repairDone = true;
   }
   return repaired;
 }
@@ -2417,6 +2420,7 @@ function addRecord(limbId, isCorrect) {
   saveRecords({ skipCloudSnapshot: true });
   addPendingRecordDelta(limbId, isCorrect);
   flushRecordDeltasToCloudIfNeeded();
+  updateMasteryCounts();
 
   if (!isCorrect) {
     recordsPendingSync = true;
