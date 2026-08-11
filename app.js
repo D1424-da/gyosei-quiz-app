@@ -70,7 +70,6 @@ let pendingRecordDeltas = {};
 let cloudRecordDeltaFlushInFlight = false;
 let cloudStudyLoadedUid = null;
 let cloudStudyPullInFlight = false;
-let cloudStudyFlushInFlight = false;
 let studyTime = { totalMs: 0, pendingDeltaMs: 0 };
 let sessionStudyStartedAt = 0;
 let studyTimeBackend = 'auto'; // 'study_stats' | 'records' | 'auto'
@@ -78,13 +77,10 @@ let studyCalendar = { checkedDates: {}, dailyCounts: {}, updatedAtMs: 0 };
 let studyCalendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 let unsubscribeRecordsRealtime = null;
 let unsubscribeStudyStatsRealtime = null;
-let unsubscribeStudyRecordsRealtime = null;
 let realtimeSubscribedUid = null;
 let firestoreRealtimeDisabled = false;
 let calendarPendingSync = false;
-let cloudCalendarFlushInFlight = false;
 let sessionSnapshotPendingSync = false;
-let cloudSessionSnapshotFlushInFlight = false;
 let studySessionSnapshotCache = {};
 
 
@@ -310,10 +306,7 @@ function getStudyFilters() {
 }
 
 function normalizeCategoryLabel(category) {
-  const value = String(category || '')
-    .replace(/[：:]/g, '・')
-    .replace(/\s*・\s*/g, '・')
-    .trim();
+  const raw = String(category || '').trim();
 
   // 旧カテゴリ名を新カテゴリ名に統一（normalize_categories.py で変換済みデータ向け）
   const aliasMap = {
@@ -326,6 +319,12 @@ function normalizeCategoryLabel(category) {
     '民法：物権': '民法（物権）',
     '民法：親族': '民法（親族・相続）',
   };
+
+  if (aliasMap[raw]) return aliasMap[raw];
+
+  const value = raw
+    .replace(/[：:]/g, '・')
+    .replace(/\s*・\s*/g, '・');
 
   return aliasMap[value] || value;
 }
@@ -747,7 +746,7 @@ function repairLastWrongData() {
     const rk = getRecordStorageKey(uid);
     storageSetJSON(rk, records);
     recordsPendingSync = true;
-  } else if (_repairedLimbIds.size > 0) {
+  } else {
     _repairDone = true;
   }
   return repaired;
@@ -1022,12 +1021,8 @@ function stopCloudRealtimeSubscriptions() {
   if (typeof unsubscribeStudyStatsRealtime === 'function') {
     unsubscribeStudyStatsRealtime();
   }
-  if (typeof unsubscribeStudyRecordsRealtime === 'function') {
-    unsubscribeStudyRecordsRealtime();
-  }
   unsubscribeRecordsRealtime = null;
   unsubscribeStudyStatsRealtime = null;
-  unsubscribeStudyRecordsRealtime = null;
   realtimeSubscribedUid = null;
 }
 
@@ -1084,7 +1079,7 @@ function startCloudRealtimeSubscriptions() {
     const localKey = getRecordStorageKey(uid);
     if (remoteRecords) {
       const remoteNormalized = normalizeRecordMap(remoteRecords);
-      records = remoteNormalized;
+      records = mergeRecordsNoLoss(records, remoteNormalized);
       repairLastWrongData();
       storageSetJSON(localKey, records);
       const now = Date.now();
@@ -1104,6 +1099,13 @@ function startCloudRealtimeSubscriptions() {
     if (remoteRecords) markSyncSuccess('records', Number(data.updatedAtMs || Date.now()));
     if (remoteCalendar) markSyncSuccess('calendar', remoteCalendarUpdatedAt || Date.now());
     if (hasRemoteSessionField) markSyncSuccess('session', remoteSessionSavedAt || Date.now());
+
+    const studyTotalMs = Number(data.studyTotalMs || 0);
+    if (studyTotalMs > 0) {
+      applyRemoteStudyTotal(studyTotalMs, 'records');
+      markSyncSuccess('studyTime', Number(data.studyUpdatedAtMs || Date.now()));
+    }
+
     tryRenderStatsIfOpen();
   }, (e) => {
     markSyncError('records', e);
@@ -1123,22 +1125,6 @@ function startCloudRealtimeSubscriptions() {
   }, (e) => {
     markSyncError('studyTime', e);
     warnCloudError('学習時間リアルタイム同期(study_stats)エラー:', e);
-    if (isFirestoreConnectivityError(e)) {
-      firestoreRealtimeDisabled = true;
-      stopCloudRealtimeSubscriptions();
-      console.info('Firestoreリアルタイム同期を一時停止しました。ローカルモードで継続します。');
-    }
-  });
-
-  unsubscribeStudyRecordsRealtime = db.collection('records').doc(uid).onSnapshot((snap) => {
-    if (!snap || !snap.exists) return;
-    const totalMs = Number((snap.data() || {}).studyTotalMs || 0);
-    if (totalMs <= 0) return;
-    applyRemoteStudyTotal(totalMs, 'records');
-    markSyncSuccess('studyTime', Number((snap.data() || {}).studyUpdatedAtMs || Date.now()));
-  }, (e) => {
-    markSyncError('studyTime', e);
-    warnCloudError('学習時間リアルタイム同期(records)エラー:', e);
     if (isFirestoreConnectivityError(e)) {
       firestoreRealtimeDisabled = true;
       stopCloudRealtimeSubscriptions();
@@ -1243,10 +1229,10 @@ async function pullRecordsFromCloudIfNeeded(force = false) {
       return;
     }
 
-    // クラウド正本: remoteRecords がある場合はクラウド値を採用する。
+    // クラウド正本: remoteRecords がある場合はローカルとマージ。
     if (remoteRecords) {
       const remoteNormalized = normalizeRecordMap(remoteRecords);
-      records = remoteNormalized;
+      records = mergeRecordsNoLoss(localRecords, remoteNormalized);
       repairLastWrongData();
       storageSetJSON(localKey, records);
       saveRecordsMeta({
@@ -1312,12 +1298,14 @@ async function flushRecordsToCloudIfNeeded() {
 function addPendingRecordDelta(limbId, isCorrect) {
   const key = String(limbId || '');
   if (!key) return;
-  pendingRecordDeltas[key] = { correct: 0, wrong: 0, lastWrong: !isCorrect };
-
+  if (!pendingRecordDeltas[key]) {
+    pendingRecordDeltas[key] = { correct: 0, wrong: 0, lastWrong: false };
+  }
+  pendingRecordDeltas[key].lastWrong = !isCorrect;
   if (isCorrect) {
-    pendingRecordDeltas[key].correct = 1;
+    pendingRecordDeltas[key].correct += 1;
   } else {
-    pendingRecordDeltas[key].wrong = 1;
+    pendingRecordDeltas[key].wrong += 1;
   }
 }
 
@@ -2614,10 +2602,14 @@ async function showPage(name) {
     return;
   }
 
+  const pageEl = $(`page-${name}`);
+  const navEl = document.querySelector(`[data-page="${name}"]`);
+  if (!pageEl || !navEl) return;
+
   $$('.page').forEach(p => p.classList.remove('active'));
   $$('.nav-btn').forEach(b => b.classList.remove('active'));
-  $(`page-${name}`).classList.add('active');
-  document.querySelector(`[data-page="${name}"]`).classList.add('active');
+  pageEl.classList.add('active');
+  navEl.classList.add('active');
   updateMembersOnlyPanels();
   const loggedIn = !!getAuthUid();
   setMasteryCountBarVisible(loggedIn && name === 'study');
@@ -3944,7 +3936,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   $('btn-add-limb').addEventListener('click', () => {
     addLimbRow($('limbs-editor'));
   });
-  $('search-manage').addEventListener('input', () => renderManage(true));
+  let searchManageDebounceTimer = null;
+  $('search-manage').addEventListener('input', () => {
+    clearTimeout(searchManageDebounceTimer);
+    searchManageDebounceTimer = setTimeout(() => renderManage(true), 200);
+  });
   $('manage-filter-subject').addEventListener('change', () => renderManage(true));
   $('manage-year-from').addEventListener('change', () => renderManage(true));
   $('manage-year-to').addEventListener('change', () => renderManage(true));
