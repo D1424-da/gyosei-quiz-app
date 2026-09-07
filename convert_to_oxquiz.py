@@ -211,6 +211,98 @@ def get_scenario_text(q: dict) -> str:
     return clean_lead_text(q.get("questionText", ""))
 
 
+# ── 空欄補充問題のO×化 ────────────────────────────────────────
+# 「次の文章の空欄［ア］～［エ］に当てはまる語句の組合せとして正しいものはどれか」型。
+# 各肢が「ア：語句 イ：語句 …」という組合せになっており、そのままでは1問1答にならない。
+# 正解の組合せから「空欄→正しい語句」を取り出し、他の肢に現れる語句を誤答として使って
+# 「空欄［ア］に入る語句は「◯◯」である。」という単独のO×問題に分解する。
+
+BLANK_LABELS = "アイウエオカキクケコ" + "ⅠⅡⅢⅣⅤⅥⅦ" + "ABCDEＡＢＣＤＥ"
+_BLANK_ITEM_PAT = re.compile(r"[（(]?([" + BLANK_LABELS + r"])[）)]?\s*[：:]\s*")
+# 語群（ア～コ）への間接参照（「Ⅰ：ア Ⅱ：ウ」）は、語群自体が問題文側にあるため対象外
+_GUNGUN_REF_PAT = re.compile(r"^[アイウエオカキクケコ]$")
+
+
+def parse_blank_combo(text: str) -> dict:
+    """「ア：語句 イ：語句」形式の肢を {ラベル: 語句} に分解する。"""
+    parts = _BLANK_ITEM_PAT.split(text or "")
+    combo = {}
+    for i in range(1, len(parts) - 1, 2):
+        word = parts[i + 1].strip().rstrip("、,").strip()
+        if word:
+            combo[parts[i]] = word
+    return combo
+
+
+def convert_blank_fill(q: dict) -> list:
+    """空欄補充問題を、空欄ごと・候補語ごとのO×問題に分解する。変換できなければ空リスト。"""
+    limbs = q.get("limbs", [])
+    combos = [(l, parse_blank_combo(l.get("text", ""))) for l in limbs]
+    correct_combo = next((c for l, c in combos if l.get("correct")), None)
+
+    # 単一空欄（「空欄［ ］に当てはまる語句として妥当なものはどれか」）は
+    # 肢そのものが候補語なので、ラベルなしの1空欄として扱う。
+    if not correct_combo and not any(c for _, c in combos):
+        correct_limb = next((l for l in limbs if l.get("correct")), None)
+        words = [l.get("text", "").strip() for l in limbs if l.get("text", "").strip()]
+        # 肢が文章の場合（「〜すべきでないものはどれか」型）は語句補充ではないので除外
+        if not correct_limb or not words or max(len(w) for w in words) > 25:
+            return []
+        combos = [(l, {"": l.get("text", "").strip()}) for l in limbs]
+        correct_combo = {"": correct_limb.get("text", "").strip()}
+
+    if not correct_combo:
+        return []
+    if any(_GUNGUN_REF_PAT.match(w) for w in correct_combo.values()):
+        return []
+
+    candidates = {}
+    for _, combo in combos:
+        for label, word in combo.items():
+            candidates.setdefault(label, [])
+            if word not in candidates[label]:
+                candidates[label].append(word)
+    if not candidates:
+        return []
+
+    q_id = q["id"]
+    year, qnum = extract_year_num(q_id)
+    scenario = get_scenario_text(q)
+    # 空欄補充は本文がなければ答えようがない（本文が未スクレイプの問題がある）
+    if not scenario:
+        return []
+
+    out = []
+    for label, words in candidates.items():
+        if label not in correct_combo:
+            continue
+        for n, word in enumerate(words):
+            where = f"空欄［{label}］" if label else "空欄"
+            ox_q = {
+                "id": f"{q_id}-blank{label}{n}",
+                "parentId": q_id,
+                "year": year,
+                "questionNumber": qnum,
+                "subject": q.get("subject", "行政書士"),
+                "category": q.get("category", ""),
+                "source": q.get("source", ""),
+                "answerType": "ox",
+                "limbs": [
+                    {
+                        "id": f"{q_id}-b{label}{n}-ox",
+                        "text": f"{where}に入る語句は「{word}」である。",
+                        "correct": word == correct_combo[label],
+                        "explanation": f"{where}に入るのは「{correct_combo[label]}」です。",
+                    }
+                ],
+                "questionUrl": q.get("questionUrl", ""),
+            }
+            if scenario:
+                ox_q["scenarioText"] = scenario
+            out.append(ox_q)
+    return out
+
+
 # NEGATIVE_PATにマッチしない言い回しでcorrectが「選択された答え（＝異質な1肢）」を
 # 意味しているChoice型問題（cache/html再検証で発見）。
 # H24-2:「『みなす』ではなく『推定する』が使われるべきものが一つだけある。それはどれか」
@@ -239,10 +331,20 @@ def convert(input_path: str, output_path: str) -> None:
     invalid_limb_count = 0
     scenario_count = 0
     inversion_count = 0
+    blank_fill_questions = 0
+    blank_fill_items = 0
 
     for q in questions:
         skip, reason = should_skip_question(q)
         if skip:
+            # 空欄補充は組合せを分解すれば1問1答にできるので、スキップせず変換を試みる
+            if reason == "空欄補充":
+                generated = convert_blank_fill(q)
+                if generated:
+                    ox_questions.extend(generated)
+                    blank_fill_questions += 1
+                    blank_fill_items += len(generated)
+                    continue
             skip_counts[reason] = skip_counts.get(reason, 0) + 1
             continue
 
@@ -306,6 +408,7 @@ def convert(input_path: str, output_path: str) -> None:
     for reason, count in skip_counts.items():
         print(f"  {reason}: {count} 問")
     print(f"  語句組合せ肢（除外）: {invalid_limb_count} 件")
+    print(f"空欄補充から生成: {blank_fill_questions} 問 → {blank_fill_items} 問（1問1答）")
     print(f"scenarioText付与: {scenario_count} 問")
     print(f"correct反転（ネガティブ問）: {inversion_count} 問")
 
