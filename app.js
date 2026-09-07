@@ -640,19 +640,19 @@ function nextReviewState(current, isCorrect, nowMs = Date.now()) {
   };
 }
 
-function reviewPriorityScore(limbId, nowMs = Date.now()) {
-  const r = getRecord(limbId);
+function reviewPriorityScore(limb, nowMs = Date.now()) {
+  const r = getEffectiveRecord(limb);
   const total = r.correct + r.wrong;
-  if (total === 0) return 1000000 + weakScore(limbId);
+  if (total === 0) return 1000000 + weakScore(limb);
 
   const review = normalizeReviewState(r.review);
   const dueAt = review.dueAtMs || review.lastAnsweredAtMs;
   const overdueDays = Math.max(0, (nowMs - dueAt) / DAY_MS);
-  return overdueDays * 2 + weakScore(limbId) * 3;
+  return overdueDays * 2 + weakScore(limb) * 3;
 }
 
-function isDueForReview(limbId, nowMs = Date.now()) {
-  const r = getRecord(limbId);
+function isDueForReview(limb, nowMs = Date.now()) {
+  const r = getEffectiveRecord(limb);
   const total = r.correct + r.wrong;
   if (total === 0) return true;
   const review = normalizeReviewState(r.review);
@@ -757,7 +757,11 @@ function updateMasteryCounts() {
   let ambiguous = 0;
   let wrong = 0;
 
-  for (const stat of Object.values(records || {})) {
+  // records を直接数えると、削除済み問題の孤児レコードや文中〇×の空欄ごとの
+  // 子レコード（limbId::key）まで1件ずつ数えてしまい、学習セッションが実際に
+  // 出題する肢の数と食い違う。現存する肢を基準に、実効成績で数える。
+  for (const limb of getAllLimbs('', '', false)) {
+    const stat = getEffectiveRecord(limb);
     if (normalizeMasteryValue(stat?.mastery) === 'perfect') perfect++;
     if (normalizeMasteryValue(stat?.mastery) === 'ambiguous') ambiguous++;
     if (isLastWrong(stat)) wrong++;
@@ -2355,6 +2359,61 @@ function getRecord(limbId) {
   };
 }
 
+// 文中〇×肢は各空欄が limbId::key という子レコードに個別記録される（addRecord参照）ため、
+// 親肢の getRecord は常に空のまま＝「苦手」「まちがえたもの」「復習」等の判定に一生反映されない。
+// この関数は親肢について、実在する子レコードを集約した「実効成績」を返す。
+// 通常肢・すでに分割済みの子レコードID（limbId::key）に対してはそのまま getRecord と同じ。
+function getEffectiveRecord(limb) {
+  const limbId = String(limb?.id || '');
+  if (!limbId || limbId.includes('::')) return getRecord(limbId);
+
+  const inlineItems = parseInlineOxItems(limb?.text || '');
+  const inlineExpected = getInlineOxExpectedAnswers(limb, inlineItems);
+  const isInlineOxQuestion = inlineItems.length > 0 && inlineExpected.length === inlineItems.length;
+  if (!isInlineOxQuestion) return getRecord(limbId);
+
+  let correct = 0;
+  let wrong = 0;
+  let wrongDateKeys = [];
+  let anySubAnswered = false;
+  let anyLastWrong = false;
+  let review = null;
+
+  for (const item of inlineItems) {
+    const sub = records[makeInlineRecordId(limbId, item.key)];
+    if (!sub) continue;
+    anySubAnswered = true;
+    correct += Math.max(0, Number(sub.correct || 0));
+    wrong += Math.max(0, Number(sub.wrong || 0));
+    wrongDateKeys.push(...(sub.wrongDateKeys || []));
+    if (isLastWrong(sub)) anyLastWrong = true;
+
+    const subReview = normalizeReviewState(sub.review);
+    if (!review) {
+      review = { ...subReview };
+    } else {
+      review.intervalDays = Math.min(review.intervalDays, subReview.intervalDays);
+      review.streak = Math.min(review.streak, subReview.streak);
+      review.ease = Math.min(review.ease, subReview.ease);
+      review.lastAnsweredAtMs = Math.max(review.lastAnsweredAtMs, subReview.lastAnsweredAtMs);
+      if (subReview.dueAtMs > 0) {
+        review.dueAtMs = review.dueAtMs > 0 ? Math.min(review.dueAtMs, subReview.dueAtMs) : subReview.dueAtMs;
+      }
+    }
+  }
+
+  return {
+    correct,
+    wrong,
+    wrongDateKeys: normalizeWrongDateKeys(wrongDateKeys),
+    // どれか1つでも直近誤答なら、その肢全体をまだ「間違えたもの」として扱う。
+    lastWrong: anySubAnswered ? anyLastWrong : null,
+    review: review || normalizeReviewState(null),
+    mastery: '',
+    masteryUpdatedAtMs: 0
+  };
+}
+
 function setLimbMastery(limbId, mastery) {
   if (!records[limbId]) {
     records[limbId] = {
@@ -2468,8 +2527,8 @@ function shuffle(arr) {
 }
 
 /** 苦手スコア（間違い多く、正答率低いほど高い） */
-function weakScore(limbId) {
-  const r = getRecord(limbId);
+function weakScore(limb) {
+  const r = getEffectiveRecord(limb);
   const total = r.correct + r.wrong;
   if (total === 0) return 0;
   return r.wrong / total + r.wrong * 0.1;
@@ -2694,26 +2753,26 @@ function startSession() {
   }
 
   if (mode === 'weak') {
-    limbs = limbs.filter(l => isLastWrong(getRecord(l.id)));
-    limbs.sort((a, b) => weakScore(b.id) - weakScore(a.id));
+    limbs = limbs.filter(l => isLastWrong(getEffectiveRecord(l)));
+    limbs.sort((a, b) => weakScore(b) - weakScore(a));
   } else if (mode === 'perfect') {
-    limbs = limbs.filter(l => normalizeMasteryValue(getRecord(l.id).mastery) === 'perfect');
+    limbs = limbs.filter(l => normalizeMasteryValue(getEffectiveRecord(l).mastery) === 'perfect');
     limbs = shuffle(limbs);
   } else if (mode === 'ambiguous') {
-    limbs = limbs.filter(l => normalizeMasteryValue(getRecord(l.id).mastery) === 'ambiguous');
+    limbs = limbs.filter(l => normalizeMasteryValue(getEffectiveRecord(l).mastery) === 'ambiguous');
     limbs = shuffle(limbs);
   } else if (mode === 'due') {
     const nowMs = Date.now();
-    limbs = limbs.filter(l => isDueForReview(l.id, nowMs));
-    limbs.sort((a, b) => reviewPriorityScore(b.id, nowMs) - reviewPriorityScore(a.id, nowMs));
+    limbs = limbs.filter(l => isDueForReview(l, nowMs));
+    limbs.sort((a, b) => reviewPriorityScore(b, nowMs) - reviewPriorityScore(a, nowMs));
   } else if (mode === 'unanswered') {
     limbs = limbs.filter(l => {
-      const r = getRecord(l.id);
+      const r = getEffectiveRecord(l);
       return r.correct === 0 && r.wrong === 0;
     });
     limbs = shuffle(limbs);
   } else if (mode === 'wrong') {
-    limbs = limbs.filter(l => isLastWrong(getRecord(l.id)));
+    limbs = limbs.filter(l => isLastWrong(getEffectiveRecord(l)));
     limbs = shuffle(limbs);
   } else {
     limbs = shuffle(limbs);
@@ -2798,7 +2857,7 @@ function renderCurrentLimb() {
   }
 
   const limb = queue[index];
-  const rec  = getRecord(limb.id);
+  const rec  = getEffectiveRecord(limb);
   const total = rec.correct + rec.wrong;
   const rate  = total > 0 ? Math.round(rec.correct / total * 100) : null;
   const inlineItems = parseInlineOxItems(limb.text || '');
@@ -3066,7 +3125,7 @@ function renderManage(resetPage = false) {
 
   list.innerHTML = pageItems.map(q => {
     const limbsHtml = q.limbs.map((l, i) => {
-      const rec   = getRecord(l.id);
+      const rec   = getEffectiveRecord(l);
       const total = rec.correct + rec.wrong;
       const rate  = total > 0 ? `${Math.round(rec.correct / total * 100)}%` : '-';
       const inlineItems = parseInlineOxItems(l.text || '');
@@ -3630,7 +3689,7 @@ function renderStats() {
       const rt = Math.round(r.correct / t * 100);
       return rt < threshold;
     })
-    .sort((a, b) => weakScore(b.id) - weakScore(a.id))
+    .sort((a, b) => weakScore(b) - weakScore(a))
     .slice(0, 50);
 
   const weakHtml = weakSorted.map((limb, i) => {
