@@ -39,28 +39,10 @@ COUNT_ANS_PAT = re.compile(r"^[一二三四五六七八九十]つ$|^[0-9０-９]
 # ※「法改正により、〜」のような通常の文は読点が入るためマッチしない
 JUNK_LIMB_PAT = re.compile(r"法改正により(削除|回答不要)")
 
-# questionText自体を参照しなければ肢を判断できない問題
-REF_QT_PAT = re.compile(
-    r"この判決|この文章|この規定に関する|本判決"
-    r"|以下の文章|以下の会話|下記の規定"
-    r"|この文章の趣旨|次の文章の趣旨"
-    r"|次の文章|次に掲げる条文"
-)
-
-# 問題文をscenarioTextとして必ず付与する問題（自動判定で拾えないもの）
+# 問題文をそのまま scenarioText にする問題（肢の判断に問題文の列挙部分が必要なもの）
 SCENARIO_FORCE_IDS = {
     "H30-6",   # 政党Xの公選法改正提案（ア～エ）が問題文にしかない
 }
-
-# 事例問題の人物・物件記号パターン
-SCENARIO_PAT = re.compile(
-    r"[AＡBＢCＣXＸYＹ][はがをにのとも]"  # A・B・X・Y などの当事者
-    r"|甲建物|甲土地|甲会社|甲機械|甲動産"  # 甲〇〇 の目的物
-    r"|[AＡBＢ]社"                          # A社・B社
-)
-
-# 「本件〜」エイリアス定義パターン（R6-11のような問題）
-ALIAS_DEF_PAT = re.compile(r'（以下[「『](本件\S{1,10})[」』]という）')
 
 # 肢が名詞句・語句のみの問題に付与する述語
 # 値に {} を含む場合はテンプレート（{} に肢テキストが入る）、
@@ -147,56 +129,86 @@ def extract_year_num(q_id: str):
     return "", 0
 
 
-def _limb_needs_context(text: str) -> bool:
-    """肢テキスト単体では判断できない参照語（先行詞なしの本件・同法・同条）を含むか"""
-    # 「本件〜」は問題文で定義された事案を指す
-    if "本件" in text:
-        return True
-    # 「同法」「同条」の先行詞（〜法・〜条）が肢内に存在しない場合
-    for ref, ante_pat in (("同法", r"[一-龥ァ-ヴーa-zA-Z０-９0-9]+法"),
-                          ("同条", r"[0-9０-９一二三四五六七八九十]+条")):
-        pos = text.find(ref)
-        if pos >= 0 and not re.search(ante_pat, text[:pos]):
-            return True
-    return False
+# 肢の列挙（ア．イ．… / 1. 2. …）の始まり
+_KATA_LINE_PAT = re.compile(r"^[アイウエオカキクケコ][\s　．.、:：]")
+_NUM_LINE_PAT = re.compile(r"^[1-5１-５][\s　．.]")
+
+# 「次の記述のうち…どれか」のような五択の設問フレーム。
+# 1問1答では意味をなさない（1肢しか出さないのに「どれか」と問うことになる）ため落とす。
+_ASK_PAT = re.compile(r"どれか|選べ|選びなさい|いくつあるか|組合せ|正しいものは|妥当なものは|誤っているものは")
+_ASK_REF_PAT = re.compile(r"次の|下記の|以下の|記述のうち|うち")
+# 「（出題ミスで複数正解）」のような注記だけの文
+_NOTE_ONLY_PAT = re.compile(r"^[（(].{0,40}[）)]。?$")
+
+
+def _lead_before_limbs(text: str) -> str:
+    """肢の列挙が始まる手前までを返す（肢本文の二重表示を防ぐ）。"""
+    lines = (text or "").split("\n")
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        if _KATA_LINE_PAT.match(stripped) or _NUM_LINE_PAT.match(stripped):
+            if i > 0:
+                return "\n".join(lines[:i]).rstrip()
+            break
+    m = re.search(r"[アイウエオカキクケコ][．.]", text or "")
+    return (text or "")[:m.start()].rstrip() if m else (text or "").rstrip()
+
+
+def _split_sentences(text: str) -> list:
+    """。で文分割する。括弧・鉤括弧の内側の。では切らない。"""
+    out, buf, depth = [], [], 0
+    opening, closing = "（(「『【〔[", "）)」』】〕]"
+    for ch in text:
+        buf.append(ch)
+        if ch in opening:
+            depth += 1
+        elif ch in closing:
+            depth = max(0, depth - 1)
+        elif ch == "。" and depth == 0:
+            out.append("".join(buf).strip())
+            buf = []
+    tail = "".join(buf).strip()
+    if tail:
+        out.append(tail)
+    return [s for s in out if s.strip("。 　\n")]
+
+
+def clean_lead_text(question_text: str) -> str:
+    """問題文から、1問1答で意味を持つ前提状況（リード文）だけを取り出す。
+
+    元の問題文は「A所有の甲土地と…が存在している。この場合における次のア～オの
+    記述のうち…組合せはどれか。」のような形をしており、後半の設問フレームは
+    1肢だけを出題する本アプリでは誤解のもとになるため取り除く。
+    残るのが設問フレームだけ（例:「家族・婚姻に関する次の記述のうち…どれか。」）なら
+    空文字を返す（テーマはカテゴリバッジで示されるため）。
+    """
+    sentences = _split_sentences(_lead_before_limbs(question_text))
+    kept = []
+    for s in sentences:
+        if _NOTE_ONLY_PAT.match(s):
+            continue
+        # 設問フレーム文を落とす。「次の記述のうち…」型に加え、
+        # 「この判決の趣旨と異なるものはどれか。」のような短い指示文も対象にする。
+        # 事案説明と設問が1文に融合している長文は、落とすと前提が失われるため残す。
+        if _ASK_PAT.search(s) and (_ASK_REF_PAT.search(s) or len(s) <= 40):
+            continue
+        kept.append(s)
+    lead = "\n".join(kept).strip()
+    return lead if len(lead) >= 15 else ""
 
 
 def get_scenario_text(q: dict) -> str:
-    """事例問題の場合に scenarioText（問題の前提状況）を返す。不要なら空文字。"""
-    qt = q.get("questionText", "")
-    limbs = q.get("limbs", [])
+    """scenarioText（問題の前提状況＝リード文）を返す。前提状況がなければ空文字。
 
-    # 強制付与リスト
+    前提状況が書かれている問題では、肢単体で判断できるかどうかに関わらず常に付ける。
+    以前は「肢が本件・同法などの参照語を含むか」等で付けるかどうかを切り替えていたが、
+    リード文が付いたり付かなかったりして出題形式が不揃いに見えるため、判定をやめた。
+    """
+    # 肢の判断に問題文の列挙部分そのものが必要な問題は、原文をそのまま渡す。
     if q.get("id") in SCENARIO_FORCE_IDS:
-        return qt
+        return q.get("questionText", "")
 
-    # パターン4: combo_ox で全肢が名詞句（。で終わらない）の問題
-    # 「〇〇の組合せ」問題の選択肢が固有名詞・短語句だけのケース（R5-30、R1-56等）
-    if q.get("answerType") == "combo_ox":
-        if limbs and all(not l.get("text", "").strip().endswith("。") for l in limbs):
-            return qt
-
-    # パターン1: 「本件処分」のようなエイリアスを定義し、肢でそのエイリアスを使用
-    alias_match = ALIAS_DEF_PAT.search(qt)
-    if alias_match:
-        alias = alias_match.group(1)
-        if any(alias in l.get("text", "") for l in limbs):
-            return qt
-
-    # パターン2: 問題文と肢の両方に当事者記号（A・B・甲など）が登場
-    if SCENARIO_PAT.search(qt):
-        if any(SCENARIO_PAT.search(l.get("text", "")) for l in limbs):
-            return qt
-
-    # パターン3: 「この判決」「この文章の趣旨」等、問題文本体を参照して肢を判断する問題
-    if REF_QT_PAT.search(qt[:300]):
-        return qt
-
-    # パターン5: 肢が先行詞のない参照語（本件・同法・同条）を含む
-    if any(_limb_needs_context(l.get("text", "")) for l in limbs):
-        return qt
-
-    return ""
+    return clean_lead_text(q.get("questionText", ""))
 
 
 # NEGATIVE_PATにマッチしない言い回しでcorrectが「選択された答え（＝異質な1肢）」を
@@ -278,7 +290,7 @@ def convert(input_path: str, output_path: str) -> None:
                         "id": f"{limb.get('id', q_id + '-l' + str(i))}-ox",
                         "text": limb_text,
                         "correct": correct,
-                        "explanation": "",
+                        "explanation": (limb.get("explanation") or "").strip(),
                     }
                 ],
                 "questionUrl": q.get("questionUrl", ""),
