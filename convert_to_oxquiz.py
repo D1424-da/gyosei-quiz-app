@@ -223,6 +223,16 @@ _BLANK_ITEM_PAT = re.compile(r"[（(]?([" + BLANK_LABELS + r"])[）)]?\s*[：:]\
 _GUNGUN_REF_PAT = re.compile(r"^[アイウエオカキクケコ]$")
 
 
+def _blank_in_text(text: str, label: str) -> bool:
+    """リード文中に、そのラベルの空欄（［ア］など）が実在するか。
+
+    label が空文字の場合は単一空欄（［ ］）があるかを見る。
+    """
+    if not label:
+        return bool(re.search(r"[［\[]\s*[］\]]", text))
+    return bool(re.search(r"[［\[]\s*" + re.escape(label) + r"\s*[］\]]", text))
+
+
 def parse_blank_combo(text: str) -> dict:
     """「ア：語句 イ：語句」形式の肢を {ラベル: 語句} に分解する。"""
     parts = _BLANK_ITEM_PAT.split(text or "")
@@ -275,6 +285,12 @@ def convert_blank_fill(q: dict) -> list:
     out = []
     for label, words in candidates.items():
         if label not in correct_combo:
+            continue
+        # 出題時に表示されるリード文に、そのラベルの空欄が実在するときだけ出題する。
+        # 本文が未スクレイプの問題（H22-1）、空欄にラベルがない問題（H29-6）、
+        # 設問文にしかラベルが現れない問題（R2-49のⅠ・Ⅱ）は、どの空欄を指すのか
+        # 読み手が判別できないため除外する。
+        if not _blank_in_text(scenario, label):
             continue
         for n, word in enumerate(words):
             where = f"空欄［{label}］" if label else "空欄"
