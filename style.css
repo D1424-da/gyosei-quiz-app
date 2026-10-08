@@ -270,6 +270,9 @@ body {
   color: var(--text-muted);
   margin-bottom: 16px;
 }
+.limb-tools {
+  margin-bottom: 14px;
+}
 .answer-buttons {
   display: flex;
   gap: 12px;
