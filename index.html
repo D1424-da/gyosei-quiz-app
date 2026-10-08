@@ -126,12 +126,18 @@
             <label for="filter-mode">出題モード</label>
             <select id="filter-mode">
               <option value="all">全問ランダム</option>
+              <option value="priority">優先復習</option>
               <option value="weak">苦手優先</option>
               <option value="due">復習優先（忘却曲線）</option>
-              <option value="perfect">完璧のみ</option>
-              <option value="ambiguous">あいまいのみ</option>
               <option value="unanswered">未回答のみ</option>
+              <option value="few">回答数が少ないもの</option>
+              <option value="unassessed">未評価のもの</option>
               <option value="wrong">間違えたもの</option>
+              <option value="neverCorrect">一度も正解していないもの</option>
+              <option value="lowAccuracy">正答率50%以下のもの</option>
+              <option value="ambiguous">あいまいのみ</option>
+              <option value="perfect">完璧のみ</option>
+              <option value="bookmarked">ブックマーク</option>
             </select>
           </div>
           <div class="study-actions">
@@ -164,6 +170,8 @@
         <button id="count-perfect" class="btn btn-primary mastery-count-btn" type="button">完璧: 0</button>
         <button id="count-ambiguous" class="btn btn-primary mastery-count-btn" type="button">あいまい: 0</button>
         <button id="count-wrong" class="btn btn-danger mastery-count-btn" type="button">まちがえたもの: 0</button>
+        <button id="count-few" class="btn btn-ghost mastery-count-btn" type="button">回答数が少ない: 0</button>
+        <button id="count-unassessed" class="btn btn-ghost mastery-count-btn" type="button">未評価: 0</button>
       </div>
 
       <!-- 肢カード -->
@@ -452,6 +460,6 @@
   </div>
 
   <script src="auth-module.js?v=20260601a"></script>
-    <script src="app.js?v=20260907b"></script>
+    <script src="app.js?v=20261008a"></script>
 </body>
 </html>

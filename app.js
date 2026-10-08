@@ -660,6 +660,100 @@ function isDueForReview(limb, nowMs = Date.now()) {
   return dueAt <= 0 || dueAt <= nowMs;
 }
 
+/** 「回答数が少ない」モードで1回に確保したい肢数の目安（1セッション分） */
+const FEW_ANSWERS_TARGET = 50;
+
+/**
+ * 与えられた肢集合について「回答数が少ない」の判定に必要な情報を1パスで算出する。
+ * 回答回数の少ないグループから順に、目安の件数がたまるまで含める。
+ * 返り値の cutoff 「以下」の回答回数の肢が対象（cutoff が -1 なら該当なし）。
+ *
+ * 平均や中央値を直接しきい値にすると、代表値そのもののグループが最下位のときに
+ * 該当0件になってしまう（例: 1回×600・2回×300・3回×100 なら中央値は1で、
+ * 「1回未満」＝未回答のみとなり、明らかに遅れている1回の肢が拾えない）。
+ * 実際の分布のグループを下から積む方式なら、この潰れ方をしない。
+ *
+ * - 全肢の回答回数が同じなら該当0件（偏りが無い＝やることが無い）。
+ *   ただし全肢が未回答なら、絶対的に少ないので全件を対象とする
+ * - 最多グループは「遅れている」とは言えないので含めない
+ */
+function computeFewAnswersInfo(limbs) {
+  const effMap = new Map();
+  const tierSize = new Map();
+  for (const l of limbs) {
+    const r = getEffectiveRecord(l);
+    effMap.set(l, r);
+    const c = r.correct + r.wrong;
+    tierSize.set(c, (tierSize.get(c) || 0) + 1);
+  }
+  if (tierSize.size === 0) return { effMap, cutoff: -1 };
+
+  const tiers = [...tierSize.keys()].sort((a, b) => a - b);
+  const maxCount = tiers[tiers.length - 1];
+  if (tiers.length === 1) {
+    // 回答回数が全肢で揃っている。未回答で揃っているときだけ全件を対象にする。
+    return { effMap, cutoff: maxCount === 0 ? 0 : -1 };
+  }
+
+  const target = Math.min(FEW_ANSWERS_TARGET, Math.ceil(limbs.length / 2));
+  let cutoff = tiers[0];
+  let acc = tierSize.get(tiers[0]);
+  for (let i = 1; i < tiers.length && acc < target; i++) {
+    if (tiers[i] === maxCount) break;
+    cutoff = tiers[i];
+    acc += tierSize.get(tiers[i]);
+  }
+  return { effMap, cutoff };
+}
+
+/** 回答済みだが「完璧」「あいまい」の評価が付いておらず、まちがえたものでもない肢。
+ *  正解しているのでどのカウント表示にも拾われないため、専用に判定する。 */
+function isUnassessedLimb(limb) {
+  const r = getEffectiveRecord(limb);
+  if (normalizeMasteryValue(r.mastery)) return false;
+  if ((r.correct + r.wrong) <= 0) return false;
+  return !isLastWrong(r);
+}
+
+/** 一度も正解していない肢か（回答はあるが正解が一度もない） */
+function isNeverCorrectLimb(limb) {
+  const r = getEffectiveRecord(limb);
+  return r.correct === 0 && r.wrong > 0;
+}
+
+/** 正答率が指定%以下の肢か（未回答は対象外） */
+function isLowAccuracyLimb(limb, maxRate = 50) {
+  const r = getEffectiveRecord(limb);
+  const t = r.correct + r.wrong;
+  if (t <= 0) return false;
+  const rt = Math.round(r.correct / t * 100);
+  return rt <= maxRate;
+}
+
+/**
+ * 「優先復習」モードの総合スコア。値が大きいほど優先的に出題する。
+ * 誤答・あいまい・未回答・復習期限切れ・苦手度・回答回数の少なさを重み付けして合算する
+ * （weakScore 経由でブックマークの加点も反映される）。
+ */
+function priorityReviewScore(limb, nowMs = Date.now()) {
+  const r = getEffectiveRecord(limb);
+  const total = r.correct + r.wrong;
+  let s = 0;
+  s += r.wrong * 3;
+  if (normalizeMasteryValue(r.mastery) === 'ambiguous') s += 2;
+  if (total === 0) {
+    s += 1 + 2; // 未回答 + 期限切れ扱い
+  } else {
+    const review = normalizeReviewState(r.review);
+    const dueAt = review.dueAtMs || review.lastAnsweredAtMs;
+    if (dueAt <= 0 || dueAt <= nowMs) s += 2;
+  }
+  // 回答回数が少ないほど加点（総練習量の偏りを均す）。回数が増えるほど滑らかに減衰する。
+  s += 4 / (total + 1);
+  s += weakScore(limb) * 5;
+  return s;
+}
+
 function normalizeRecordMap(map) {
   const src = (map && typeof map === 'object') ? map : {};
   const out = {};
@@ -673,7 +767,8 @@ function normalizeRecordMap(map) {
       lastWrong: stat?.lastWrong != null ? !!stat.lastWrong : null,
       review: normalizeReviewState(stat?.review),
       mastery: normalizeMasteryValue(stat?.mastery),
-      masteryUpdatedAtMs: Math.max(0, Number(stat?.masteryUpdatedAtMs || 0))
+      masteryUpdatedAtMs: Math.max(0, Number(stat?.masteryUpdatedAtMs || 0)),
+      bookmarked: !!stat?.bookmarked
     };
   }
   return out;
@@ -709,7 +804,8 @@ function mergeRecordsNoLoss(localMap, remoteMap) {
       mastery: masteryFromRemote
         ? normalizeMasteryValue(remote[id]?.mastery)
         : normalizeMasteryValue(local[id]?.mastery),
-      masteryUpdatedAtMs: Math.max(localMasteryAt, remoteMasteryAt)
+      masteryUpdatedAtMs: Math.max(localMasteryAt, remoteMasteryAt),
+      bookmarked: !!(local[id]?.bookmarked || remote[id]?.bookmarked)
     };
   }
   return merged;
@@ -756,20 +852,34 @@ function updateMasteryCounts() {
   let perfect = 0;
   let ambiguous = 0;
   let wrong = 0;
+  let few = 0;
+  let unassessed = 0;
 
   // records を直接数えると、削除済み問題の孤児レコードや文中〇×の空欄ごとの
   // 子レコード（limbId::key）まで1件ずつ数えてしまい、学習セッションが実際に
   // 出題する肢の数と食い違う。現存する肢を基準に、実効成績で数える。
-  for (const limb of getAllLimbs('', '', false)) {
-    const stat = getEffectiveRecord(limb);
-    if (normalizeMasteryValue(stat?.mastery) === 'perfect') perfect++;
-    if (normalizeMasteryValue(stat?.mastery) === 'ambiguous') ambiguous++;
-    if (isLastWrong(stat)) wrong++;
+  const limbs = getAllLimbs('', '', false);
+  const { effMap, cutoff: fewCutoff } = computeFewAnswersInfo(limbs);
+  for (const limb of limbs) {
+    const stat = effMap.get(limb);
+    const mastery = normalizeMasteryValue(stat?.mastery);
+    if (mastery === 'perfect') perfect++;
+    else if (mastery === 'ambiguous') ambiguous++;
+    const wasWrong = isLastWrong(stat);
+    if (wasWrong) wrong++;
+    const total = stat.correct + stat.wrong;
+    if (fewCutoff >= 0 && total <= fewCutoff) few++;
+    // 回答済みで、まちがえたものでもなく、完璧/あいまいも付いていない肢。
+    // どのカウント表示からも辿り着けないため、専用に数えて拾えるようにする。
+    if (!mastery && total > 0 && !wasWrong) unassessed++;
   }
 
   setText('count-perfect', `完璧: ${perfect}`);
   setText('count-ambiguous', `あいまい: ${ambiguous}`);
   setText('count-wrong', `まちがえたもの: ${wrong}`);
+  // しきい値は学習の進み具合で変わるため、現在値を併記して意味が分かるようにする。
+  setText('count-few', fewCutoff >= 0 ? `回答数が少ない: ${few}（${fewCutoff}回以下）` : '回答数が少ない: 0（偏りなし）');
+  setText('count-unassessed', `未評価: ${unassessed}`);
 }
 
 function calcStudyStreak() {
@@ -2348,15 +2458,20 @@ function showChangePwForm() {
   $('change-pw-old').focus();
 }
 
-function getRecord(limbId) {
-  return records[limbId] || {
+function makeEmptyRecord() {
+  return {
     correct: 0,
     wrong: 0,
     wrongDateKeys: [],
     review: normalizeReviewState(null),
     mastery: '',
-    masteryUpdatedAtMs: 0
+    masteryUpdatedAtMs: 0,
+    bookmarked: false
   };
+}
+
+function getRecord(limbId) {
+  return records[limbId] || makeEmptyRecord();
 }
 
 // 文中〇×肢は各空欄が limbId::key という子レコードに個別記録される（addRecord参照）ため、
@@ -2403,44 +2518,37 @@ function getEffectiveRecord(limb) {
   }
 
   return {
+    ...getRecord(limbId),
     correct,
     wrong,
     wrongDateKeys: normalizeWrongDateKeys(wrongDateKeys),
     // どれか1つでも直近誤答なら、その肢全体をまだ「間違えたもの」として扱う。
     lastWrong: anySubAnswered ? anyLastWrong : null,
-    review: review || normalizeReviewState(null),
-    mastery: '',
-    masteryUpdatedAtMs: 0
+    review: review || normalizeReviewState(null)
   };
 }
 
 function setLimbMastery(limbId, mastery) {
   if (!records[limbId]) {
-    records[limbId] = {
-      correct: 0,
-      wrong: 0,
-      wrongDateKeys: [],
-      review: normalizeReviewState(null),
-      mastery: '',
-      masteryUpdatedAtMs: 0
-    };
+    records[limbId] = makeEmptyRecord();
   }
   records[limbId].mastery = normalizeMasteryValue(mastery);
   records[limbId].masteryUpdatedAtMs = Date.now();
   saveRecords();
 }
 
+function toggleLimbBookmark(limbId) {
+  if (!records[limbId]) {
+    records[limbId] = makeEmptyRecord();
+  }
+  records[limbId].bookmarked = !records[limbId].bookmarked;
+  saveRecords();
+  return records[limbId].bookmarked;
+}
+
 function addRecord(limbId, isCorrect) {
   if (!records[limbId]) {
-    records[limbId] = {
-      correct: 0,
-      wrong: 0,
-      wrongDateKeys: [],
-      lastWrong: false,
-      review: normalizeReviewState(null),
-      mastery: '',
-      masteryUpdatedAtMs: 0
-    };
+    records[limbId] = { ...makeEmptyRecord(), lastWrong: false };
   }
   if (isCorrect) {
     records[limbId].correct++;
@@ -2530,8 +2638,9 @@ function shuffle(arr) {
 function weakScore(limb) {
   const r = getEffectiveRecord(limb);
   const total = r.correct + r.wrong;
-  if (total === 0) return 0;
-  return r.wrong / total + r.wrong * 0.1;
+  let s = total === 0 ? 0 : r.wrong / total + r.wrong * 0.1;
+  if (r.bookmarked) s += 2;
+  return s;
 }
 
 function getSubjects() {
@@ -2771,9 +2880,33 @@ function startSession() {
       return r.correct === 0 && r.wrong === 0;
     });
     limbs = shuffle(limbs);
+  } else if (mode === 'few') {
+    // 全体に対して回答回数が相対的に少ない肢を、少ない順に出題して練習量の偏りを均す。
+    const { effMap, cutoff } = computeFewAnswersInfo(limbs);
+    const countOf = (l) => effMap.get(l).correct + effMap.get(l).wrong;
+    limbs = shuffle(limbs.filter(l => cutoff >= 0 && countOf(l) <= cutoff));
+    limbs.sort((a, b) => countOf(a) - countOf(b));
+  } else if (mode === 'unassessed') {
+    limbs = shuffle(limbs.filter(l => isUnassessedLimb(l)));
   } else if (mode === 'wrong') {
     limbs = limbs.filter(l => isLastWrong(getEffectiveRecord(l)));
     limbs = shuffle(limbs);
+  } else if (mode === 'neverCorrect') {
+    limbs = shuffle(limbs.filter(l => isNeverCorrectLimb(l)));
+  } else if (mode === 'lowAccuracy') {
+    limbs = shuffle(limbs.filter(l => isLowAccuracyLimb(l)));
+  } else if (mode === 'bookmarked') {
+    limbs = limbs.filter(l => !!getEffectiveRecord(l).bookmarked);
+    limbs = shuffle(limbs);
+  } else if (mode === 'priority') {
+    // 完璧マスター済みは除外（ただしブックマーク済みは残す）。優先スコアは肢ごとに一度だけ算出する。
+    const nowMs = Date.now();
+    limbs = limbs.filter(l => {
+      const r = getEffectiveRecord(l);
+      return normalizeMasteryValue(r.mastery) !== 'perfect' || r.bookmarked;
+    });
+    const scoreMap = new Map(limbs.map(l => [l, priorityReviewScore(l, nowMs)]));
+    limbs.sort((a, b) => scoreMap.get(b) - scoreMap.get(a));
   } else {
     limbs = shuffle(limbs);
   }
@@ -2894,6 +3027,7 @@ function renderCurrentLimb() {
     `;
 
   const area = $('limb-area');
+  const bookmarkLabel = rec.bookmarked ? '★ ブックマーク済み' : '☆ ブックマーク';
   area.innerHTML = `
     <div class="limb-card card">
       ${limb.source ? `<div class="limb-meta"><span class="badge badge-source">${esc(limb.source)}</span> <span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>` : `<div class="limb-meta"><span class="badge badge-subject">${esc(limb.subject)}</span>${limb.category ? ` <span class="badge badge-category">${esc(normalizeCategoryLabel(limb.category))}</span>` : ''}</div>`}
@@ -2901,9 +3035,20 @@ function renderCurrentLimb() {
       ${limb.questionText ? `<div class="question-shared"><span class="question-label">問題文</span><span class="question-body">${esc(limb.questionText)}</span></div>` : ''}
       <div class="limb-text">${inlineTextHtml}</div>
       <div class="limb-record">${rate !== null ? `正答率 ${rate}% (${rec.correct}○ ${rec.wrong}×)` : '未回答'}</div>
+      <div class="limb-tools">
+        <button id="btn-bookmark-limb" class="btn btn-ghost btn-sm" type="button">${bookmarkLabel}</button>
+      </div>
       ${answerSectionHtml}
     </div>
   `;
+
+  const btnBookmark = $('btn-bookmark-limb');
+  if (btnBookmark) {
+    btnBookmark.addEventListener('click', () => {
+      const flagged = toggleLimbBookmark(limb.id);
+      btnBookmark.textContent = flagged ? '★ ブックマーク済み' : '☆ ブックマーク';
+    });
+  }
 
   if (isInlineOxQuestion) {
     startStudyTimerIfNeeded(true);
@@ -3704,7 +3849,7 @@ function renderStats() {
       <span class="weak-rank">${i + 1}</span>
       <div class="weak-limb-info">
         <div class="weak-limb-text">${esc(limb.text.slice(0, 80))}${limb.text.length > 80 ? '…' : ''}</div>
-        <div class="weak-limb-meta">${esc(limb.subject)}${limb.category ? ' / ' + esc(normalizeCategoryLabel(limb.category)) : ''}　 正答率 ${rt}% (${r.correct}○ ${r.wrong}×)${esc(wrongDateInfo)}</div>
+        <div class="weak-limb-meta">${esc(limb.subject)}${limb.category ? ' / ' + esc(normalizeCategoryLabel(limb.category)) : ''}　 正答率 ${rt}% (${r.correct}○ ${r.wrong}×)${r.bookmarked ? ' / ★' : ''}${esc(wrongDateInfo)}</div>
       </div>
     </div>`;
   }).join('');
@@ -3937,9 +4082,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const countPerfectBtn = $('count-perfect');
   const countAmbiguousBtn = $('count-ambiguous');
   const countWrongBtn = $('count-wrong');
+  const countFewBtn = $('count-few');
+  const countUnassessedBtn = $('count-unassessed');
   if (countPerfectBtn) countPerfectBtn.addEventListener('click', () => jumpToStudyMode('perfect'));
   if (countAmbiguousBtn) countAmbiguousBtn.addEventListener('click', () => jumpToStudyMode('ambiguous'));
   if (countWrongBtn) countWrongBtn.addEventListener('click', () => jumpToStudyMode('wrong'));
+  if (countFewBtn) countFewBtn.addEventListener('click', () => jumpToStudyMode('few'));
+  if (countUnassessedBtn) countUnassessedBtn.addEventListener('click', () => jumpToStudyMode('unassessed'));
 
   $('filter-subject').addEventListener('change', (e) => {
     const cats = getCategories(e.target.value);
